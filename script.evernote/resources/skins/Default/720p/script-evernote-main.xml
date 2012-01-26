@@ -1,0 +1,98 @@
+<window>
+  <defaultcontrol>200</defaultcontrol>
+  <coordinates>
+    <system>1</system>
+    <posx>0</posx>
+    <posy>0</posy>
+  </coordinates>
+  <controls>
+  	<control type="group">
+      <!-- ** Required ** Do not change <id> or <type> -->
+      <control type="list" id="120">
+        <posx>20</posx>
+        <posy>20</posy>
+        <width>1040</width>
+        <height>680</height>
+        <onleft>120</onleft>
+        <onright>120</onright>
+        <onup>120</onup>
+        <ondown>120</ondown>
+        <viewtype label="535">list</viewtype>
+        <pagecontrol>121</pagecontrol>
+        <scrolltime>200</scrolltime>
+        <itemlayout height="38">
+          <control type="image">
+            <posx>2</posx>
+            <posy>2</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>$INFO[ListItem.Thumb]</texture>
+          </control>
+       
+          <control type="label">
+            <posx>40</posx>
+            <posy>0</posy>
+            <width>1200</width>
+            <height>38</height>
+            <font>font18</font>
+            <aligny>center</aligny>
+            <textcolor>white</textcolor>
+            <selectedcolor>green</selectedcolor>
+            <align>left</align>
+            <info>ListItem.Label</info>
+          </control>
+        </itemlayout>
+        <focusedlayout height="38">
+          <control type="image">
+            <posx>0</posx>
+            <posy>0</posy>
+            <width>1200</width>
+            <height>38</height>
+            <texture border="10">script-evernote-list-focus.png</texture>
+            <visible>Control.HasFocus(120)</visible>
+          </control>
+           <control type="image">
+            <posx>2</posx>
+            <posy>2</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>$INFO[ListItem.Thumb]</texture>
+          </control>
+       
+          <control type="label">
+            <posx>40</posx>
+            <posy>0</posy>
+            <width>1200</width>
+            <height>38</height>
+            <font>font18</font>
+            <aligny>center</aligny>
+            <textcolor>white</textcolor>
+            <selectedcolor>green</selectedcolor>
+            <align>left</align>
+            <info>ListItem.Label</info>
+          </control>
+		  
+        </focusedlayout>
+      </control>
+      <control type="group">
+        <posx>1055</posx>
+        <posy>152</posy>
+        <control type="scrollbar" id="121">
+          <description>scroll bar indicator for lists</description>
+          <posx>0</posx>
+          <posy>0</posy>
+          <width>12</width>
+          <height>380</height>
+          <texturesliderbackground border="6">default-scroll_back.png</texturesliderbackground>
+          <texturesliderbar border="6">default-scroll_mid.png</texturesliderbar>
+          <texturesliderbarfocus border="6">default-scroll_mid.png</texturesliderbarfocus>
+          <textureslidernib>-</textureslidernib>
+          <textureslidernibfocus>-</textureslidernibfocus>
+          <orientation>vertical</orientation>
+          <showonepage>false</showonepage>
+          <visible>Control.IsVisible(120)</visible>
+        </control>
+      </control>
+    </control>
+  </controls>
+</window>
