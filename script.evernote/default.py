@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
-#TODO: RE-ENABLE
-#import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
+import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
 import sys, os, time, re, traceback
 import htmlentitydefs
 
@@ -20,8 +19,31 @@ __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
 __version__ = '0.1.0'
 #TODO: RE-ENABLE
-#__addon__ = xbmcaddon.Addon(id='script.evernote')
-#__lang__ = __addon__.getLocalizedString
+__addon__ = xbmcaddon.Addon(id='script.evernote')
+__lang__ = __addon__.getLocalizedString
+
+ACTION_MOVE_LEFT      = 1
+ACTION_MOVE_RIGHT     = 2
+ACTION_MOVE_UP        = 3
+ACTION_MOVE_DOWN      = 4
+ACTION_PAGE_UP        = 5
+ACTION_PAGE_DOWN      = 6
+ACTION_SELECT_ITEM    = 7
+ACTION_HIGHLIGHT_ITEM = 8
+ACTION_PARENT_DIR_OLD = 9
+ACTION_PARENT_DIR     = 92
+ACTION_PREVIOUS_MENU  = 10
+ACTION_SHOW_INFO      = 11
+ACTION_PAUSE          = 12
+ACTION_STOP           = 13
+ACTION_NEXT_ITEM      = 14
+ACTION_PREV_ITEM      = 15
+ACTION_SHOW_GUI       = 18
+ACTION_PLAYER_PLAY    = 79
+ACTION_MOUSE_LEFT_CLICK = 100
+ACTION_CONTEXT_MENU   = 117
+
+THEME = 'Default'
 
 import locale
 loc = locale.getdefaultlocale()
@@ -43,8 +65,8 @@ def ERROR(message):
 
 class EvernoteSession():
 	def __init__(self):
-		self.consumerKey = "ruuk25"
-		self.consumerSecret = "1548ba91e5b36cc5"
+		self.consumerKey = "ruuk25-6163"
+		self.consumerSecret = "20ff7fdf04db11ec"
 		self.evernoteHost = "sandbox.evernote.com"
 		self.userStoreUri = "https://" + self.evernoteHost + "/edam/user"
 		self.noteStoreUriBase = "https://" + self.evernoteHost + "/edam/note/"
@@ -120,8 +142,16 @@ class EvernoteSession():
 				self.defaultNotebook = notebook
 		return notebooks
 
+	def getNotebookByName(self,notebook_name):
+		notebooks = self.getNotebooks()
+		for nb in notebooks:
+			if nb.name == notebook_name: return nb
+		return None
+	
 	def createNote(self,text='',image_files=[],notebook=None):
-		if not notebook:
+		if notebook and not notebook.defaultNotebook:
+			LOG("Creating a new note in notebook: %s" % notebook.name)
+		else:
 			LOG("Creating a new note in default notebook: %s" % self.defaultNotebook.name)
 			notebook = self.defaultNotebook
 		
@@ -134,6 +164,9 @@ class EvernoteSession():
 		if image_files:
 			resources = []
 			for ifile in image_files:
+				root,ext = os.path.splitext(ifile)
+				if ext == '.jpg': ext = '.jpeg'
+				ext = ext[1:]
 				image = open(ifile, 'rb').read()
 				md5 = hashlib.md5()
 				md5.update(image)
@@ -146,7 +179,7 @@ class EvernoteSession():
 				data.body = image
 			
 				resource = Types.Resource()
-				resource.mime = 'image/png'
+				resource.mime = 'image/' + ext
 				resource.data = data
 				resources.append(resource)
 				note.content += '<en-media type="image/png" hash="' + hashHex + '"/>'
@@ -157,10 +190,84 @@ class EvernoteSession():
 		createdNote = self.noteStore.createNote(self.authToken, note)
 		
 		LOG("Successfully created a new note with GUID: %s" % createdNote.guid)
+
+def doKeyboard(prompt,default='',hidden=False):
+	keyboard = xbmc.Keyboard(default,prompt)
+	keyboard.setHiddenInput(hidden)
+	keyboard.doModal()
+	if not keyboard.isConfirmed(): return None
+	return keyboard.getText()
+
+class XNoteSession():
+	def __init__(self):
+		self.esession = EvernoteSession()
+		user,password = self.getUserPass()
+		self.esession.setUserPass(user, password)
+		self.esession.startSession()
+		#self.esession.getNotebooks()
+		#nb = self.esession.getNotebookByName('Frog Notes')
+		#self.esession.createNote('This is a third test note!', ['icon.png'],nb)
+		self.showNotebooks()
+	
+	def menuItemSelected(self):
+		pass
+	
+	def getUserPass(self):
+		user = doKeyboard('Enter Username')
+		password = doKeyboard('Enter Password')
+		return user,password
+	
+	def showNotebooks(self):
+		notebooks = self.esession.getNotebooks()
+		items = []
+		for nb in notebooks:
+			item = xbmcgui.ListItem()
+			item.setThumbnailImage('')
+			item.setLabel(nb.name)
+			items.append(item)
+		wlist = self.window.getControl(120)
+		wlist.addItems(items)
+	
+class BaseWindow(xbmcgui.WindowXML):
+	def __init__( self, *args, **kwargs):
+		xbmcgui.WindowXML.__init__( self, *args, **kwargs )
 		
-es = EvernoteSession()
-user,password = es.processCommandLine()
-es.setUserPass(user, password)
-es.startSession()
-es.getNotebooks()
-es.createNote('This is a test note!', ['icon.png'])
+	def onFocus( self, controlId ):
+		self.controlId = controlId
+		
+	def onAction(self,action):
+		#if action == ACTION_PARENT_DIR or
+		if action == ACTION_PREVIOUS_MENU:
+			self.close()
+			return True
+		else:
+			return False
+		
+class MainWindow(BaseWindow):
+	def __init__( self, *args, **kwargs):
+		self.session = None
+		BaseWindow.__init__( self, *args, **kwargs )
+		
+	def onInit(self):
+		if self.session: XNoteSession()
+		
+	def onClick( self, controlID ):
+		if controlID == 120:
+			self.session.menuItemSelected()
+
+def openWindow(window_name,session=None,**kwargs):
+	windowFile = 'script-evernote-%s.xml' % window_name
+	w = MainWindow(windowFile , xbmc.translatePath(__addon__.getAddonInfo('path')), THEME)
+	w.doModal()			
+	del w
+		
+if False:			
+	es = EvernoteSession()
+	user,password = es.processCommandLine()
+	es.setUserPass(user, password)
+	es.startSession()
+	es.getNotebooks()
+	nb = es.getNotebookByName('Frog Notes')
+	es.createNote('This is a third test note!', ['icon.png'],nb)
+else:
+	openWindow('main')
