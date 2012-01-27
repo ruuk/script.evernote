@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
-import sys, os, time, re, traceback
-import htmlentitydefs
+import sys, os, re, traceback
 
 #Evernote Imports
 import hashlib
 import binascii
-from xml.sax.saxutils import unescape, escape
+from xml.sax.saxutils import escape
 import thrift.protocol.TBinaryProtocol as TBinaryProtocol
 import thrift.transport.THttpClient as THttpClient
 import evernote.edam.userstore.UserStore as UserStore
@@ -19,7 +18,6 @@ __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
 __version__ = '0.1.1'
-#TODO: RE-ENABLE
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -55,8 +53,7 @@ def ENCODE(string):
 	return string.encode(ENCODING,'replace')
 
 def LOG(message):
-	#xbmc.log('TVRAGE-EPS: %s' % ENCODE(str(message)))
-	print 'EVERNOTE-XBMC: %s' % ENCODE(str(message))
+	xbmc.log('EVERNOTE-XBMC: %s' % ENCODE(str(message)))
 	
 def ERROR(message):
 	LOG(message)
@@ -275,7 +272,7 @@ class XNoteSession():
 		item = self.getFocusedItem(125)
 		guid = item.getProperty('guid')
 		note = self.esession.getNoteByGuid(guid)
-		self.viewNote(note.content)
+		self.viewNote(note)
 	
 	def getUserPass(self):
 		user = __addon__.getSetting('login_user')
@@ -353,10 +350,10 @@ class XNoteSession():
 		for note in noteList.notes: 
 			path = ''
 			if note.resources:
-				print 'test'
-				print note.resources
+				#print 'test'
+				#print note.resources
 				for res in note.resources:
-					print res.mime
+					#print res.mime
 					if 'image/' in res.mime:
 						ext = '.' + res.mime.split('/',1)[1]
 						filename = note.guid + ext
@@ -385,12 +382,25 @@ class XNoteSession():
 		if os.path.exists(path): return path
 		return ''
 	
-	def viewNote(self,contents):
+	def viewNote(self,note):
+		contents = note.content
 		contents = re.sub('<!DOCTYPE.*?>','',contents)
+		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/>',r'<img src="\1" />',contents)
+		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/>',r'<img src="\1" />',contents)
 		noteFile = os.path.join(self.CACHE_PATH,'notecontents.html')
 		nf = open(noteFile,'w')
 		nf.write(contents)
 		nf.close()
+		if note.resources:
+			for res in note.resources:
+				if 'image' in res.mime:
+					#ext = '.' + res.mime.split('/',1)[1]
+					filename = binascii.hexlify(res.data.bodyHash)
+					path = self.isCached(filename)
+					if not path:
+						data = self.esession.getResourceData(res.guid)
+						path = self.cacheImage(filename,data)
+						
 		url = 'file://%s' % noteFile
 		from webviewer import webviewer #@UnresolvedImport
 		url,html = webviewer.getWebResult(url) #@UnusedVariable
