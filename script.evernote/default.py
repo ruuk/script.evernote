@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
-import sys, os, re, traceback
+import sys, os, re, traceback, glob, time
 
 #Evernote Imports
 import hashlib
@@ -53,7 +53,7 @@ def ENCODE(string):
 	return string.encode(ENCODING,'replace')
 
 def LOG(message):
-	xbmc.log('EVERNOTE-XBMC: %s' % ENCODE(str(message)))
+	xbmc.log('X-NOTE: %s' % ENCODE(str(message)))
 	
 def ERROR(message):
 	LOG(message)
@@ -61,6 +61,17 @@ def ERROR(message):
 	err = str(sys.exc_info()[1])
 	return err
 
+class EvernoteSessionError(Exception):
+	def __init__(self,func,meth,e):
+		errorText = Errors.EDAMErrorCode._VALUES_TO_NAMES[e.errorCode]
+		Exception.__init__(self, errorText)
+		self.error = e
+		self.code = e.errorCode
+		self.function = func
+		self.method = meth
+		self.parameter = e.parameter
+		self.message = errorText
+			
 class EvernoteSession():
 	def __init__(self):
 		self.consumerKey = "ruuk25-6163"
@@ -72,9 +83,6 @@ class EvernoteSession():
 		self.userStoreHttpClient = THttpClient.THttpClient(self.userStoreUri)
 		self.userStoreProtocol = TBinaryProtocol.TBinaryProtocol(self.userStoreHttpClient)
 		self.userStore = UserStore.Client(self.userStoreProtocol)
-		
-		self.defaultNotebook = None
-		self.notebooks = []
 		
 	def processCommandLine(self):
 		if len(sys.argv) < 3:
@@ -90,7 +98,10 @@ class EvernoteSession():
 		self.user = user
 		self.password = password
 		
-	def startSession(self):
+	def startSession(self,authResult=None):
+		self.defaultNotebook = None
+		self.notebooks = []
+		
 		versionOK = self.userStore.checkVersion("Python EDAMTest",
 										   UserStoreConstants.EDAM_VERSION_MAJOR,
 										   UserStoreConstants.EDAM_VERSION_MINOR)
@@ -100,9 +111,24 @@ class EvernoteSession():
 			return None
 		
 		# Authenticate the user
-		try :
-			authResult = self.userStore.authenticate(self.user, self.password,
-												self.consumerKey, self.consumerSecret)
+		if not authResult:
+			authResult = self.authenticate(self.user, self.password)
+		
+		self.user = authResult.user
+		self.authToken = authResult.authenticationToken
+		LOG("Authentication was successful for %s" % self.user.username)
+		LOG("Authentication token = %s" % self.authToken)
+		
+		noteStoreUri =  self.noteStoreUriBase + self.user.shardId
+		noteStoreHttpClient = THttpClient.THttpClient(noteStoreUri)
+		noteStoreProtocol = TBinaryProtocol.TBinaryProtocol(noteStoreHttpClient)
+		self.noteStore = NoteStore.Client(noteStoreProtocol)
+		
+		return self.user
+
+	def authenticate(self,user, password):
+		try:
+			return self.userStore.authenticate(user, password, self.consumerKey, self.consumerSecret)
 		except Errors.EDAMUserException as e:
 			# See http://www.evernote.com/about/developer/api/ref/UserStore.html#Fn_UserStore_authenticate
 			parameter = e.parameter
@@ -118,23 +144,17 @@ class EvernoteSession():
 					LOG("You must authenticate using a username and password from %s" % self.evernoteHost)
 				elif parameter == "password":
 					LOG("The password entered is incorrect")
-			return None
+			raise EvernoteSessionError('startSession()','userStore.authenticate',e)
 		
-		self.user = authResult.user
-		self.authToken = authResult.authenticationToken
-		LOG("Authentication was successful for %s" % self.user.username)
-		LOG("Authentication token = %s" % self.authToken)
-		
-		noteStoreUri =  self.noteStoreUriBase + self.user.shardId
-		noteStoreHttpClient = THttpClient.THttpClient(noteStoreUri)
-		noteStoreProtocol = TBinaryProtocol.TBinaryProtocol(noteStoreHttpClient)
-		self.noteStore = NoteStore.Client(noteStoreProtocol)
-		
-		return self.user
-
 	def getNotebooks(self,ignoreCache=False):
 		if self.notebooks and not ignoreCache: return self.notebooks
-		notebooks = self.noteStore.listNotebooks(self.authToken)
+		try:
+			notebooks = self.noteStore.listNotebooks(self.authToken)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('getNotebooks()','noteStore.listNotebooks',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('getNotebooks()','noteStore.listNotebooks',e)
+		
 		self.notebooks = notebooks
 		LOG("Found %s notebooks:" % len(notebooks))
 		for notebook in notebooks:
@@ -167,6 +187,7 @@ class EvernoteSession():
 		if not guid:
 			if not notebook: return
 			guid = notebook.guid
+		LOG('Getting notes for notebook - guid: %s' % guid)
 		nf = NoteStore.NoteFilter()
 		nf.notebookGuid = guid
 		notes = self.noteStore.findNotes(self.authToken,nf,0,999)
@@ -244,29 +265,94 @@ def deObfuscate(coded):
 class XNoteSession():
 	def __init__(self,window=None):
 		self.window = window
+		self._pdialog = None
 		
 		self.CACHE_PATH = os.path.join(xbmc.translatePath(__addon__.getAddonInfo('profile')),'cache')
 		if not os.path.exists(self.CACHE_PATH): os.makedirs(self.CACHE_PATH)
 		
-		self.esession = EvernoteSession()
-		user,password = self.getUserPass()
-		self.esession.setUserPass(user, password)
-		self.esession.startSession()
-		#self.esession.getNotebooks()
-		#nb = self.esession.getNotebookByName('Frog Notes')
-		#self.esession.createNote('This is a third test note!', ['icon.png'],nb)
+		try:
+			self.esession = EvernoteSession()
+			if not self.startSession():
+				self.window.close()
+				return
+		except EvernoteSessionError as e:
+			self.error(e,message='Error Starting Session')
+			self.window.close()
+			return
+		except:
+			self.error(message='Error Starting Session')
+			self.window.close()
+			return
+			
 		self.showNotebooks()
 	
+	def startSession(self,user=None):
+		user,password = self.getUserPass(user)
+		if not user: return False
+		self.esession.setUserPass(user, password)
+		self.esession.startSession()
+		return True
+		
+	def error(self,error=None,message=''):
+		if error:
+			ERROR('ES API Error - %s:%s - Param: %s - %s' % (error.function,error.method,error.parameter,error.message))
+			err = 'ES API: %s' % error.message
+		else:
+			err = ERROR(message)
+		self.showError(message,err)
+	
+	def showError(self,l1,l2='',l3=''):
+		xbmcgui.Dialog().ok(__lang__(30040),l1,l2,l3)
+		
+	def cleanCache(self):
+		root = self.CACHE_PATH
+		expiration = 2592000
+		day = 86400
+		now = time.time()
+		for folder in glob.glob(root):
+			LOG('Cleaning Cache: %s' % folder)
+			for image in glob.glob(folder + '/*.*'):
+				show = os.path.basename(image)
+				# retrieves the stats for the current jpeg image file
+				# the tuple element at index 8 is the last-modified-date
+				stats = os.stat(image)
+				lastAccessDate = stats[7]
+				days_left = int(((lastAccessDate + expiration) - now) / day)
+				LOG('File %s last accessed: %s - %s days left.' % (show, time.strftime("%m/%d/%y", time.localtime(lastAccessDate)),days_left))
+				# check if image-last-accessed-date is outdated
+				if now - lastAccessDate > expiration:
+					try:
+						LOG('Removing: %s' % show)
+						#os.remove(image)
+					except OSError:
+						LOG('Could not remove: %s' % show)
+						
 	def getFocusedItem(self,list_id):
 		lc = self.window.getControl(list_id)
 		return lc.getSelectedItem()
 	
+	def startProgress(self,caption=__lang__(30030),text=''):
+		self._pdialog = xbmcgui.DialogProgress()
+		self._pdialog.create(caption)
+		self._pdialog.update(0,text)
+		
+	def updateProgress(self,pct=0,line1='',line2='',line3='',total=0):
+		if total: pct = int((pct*100.0)/total)
+		self._pdialog.update(pct,line1,line2,line3)
+		
+	def endProgress(self):
+		if not self._pdialog: return
+		self._pdialog.close()
+		self._pdialog = None
+		
 	def notebookSelected(self):
 		item = self.getFocusedItem(120)
 		guid = item.getProperty('guid')
-		self.window.getControl(130).setLabel(__lang__(3021) + '   [COLOR FF888888]' + item.getProperty('name') + '[/COLOR]')
-		#nb = self.esession.getNotebookByGuid(guid)
+		self.setNotebookTitleDisplay(item.getProperty('name'))
 		self.showNotes(guid)
+		
+	def setNotebookTitleDisplay(self,name=''):
+		self.window.getControl(130).setLabel(__lang__(3021) + '   [COLOR FF888888]' + name + '[/COLOR]')
 		
 	def noteSelected(self):
 		item = self.getFocusedItem(125)
@@ -274,35 +360,99 @@ class XNoteSession():
 		note = self.esession.getNoteByGuid(guid)
 		self.viewNote(note)
 	
-	def getUserPass(self):
-		user = __addon__.getSetting('login_user')
+	def getUserPass(self,user=None,force=False):
+		if force:
+			user = doKeyboard('Enter Username')
+		if not user:
+			if __addon__.getSetting('choose_user') == 'true':
+				user = self.chooseUser()
+		if not user:
+			user = __addon__.getSetting('last_user')
+		if not user:
+			user = self.chooseUser(0)
 		if not user:
 			user = doKeyboard('Enter Username')
-			__addon__.setSetting('login_user',user)
-		password = __addon__.getSetting('login_pass')
+		password = __addon__.getSetting('login_pass_%s' % user)
 		if password:
 			password = deObfuscate(password)
 		else:
-			password = doKeyboard('Enter Password')
-			__addon__.setSetting('login_pass',obfuscate(password))
+			password = doKeyboard('Enter Password',hidden=True)
+		if not self.addUser(user,password): return None,None
+		__addon__.setSetting('last_user',user)
+		__addon__.setSetting('login_pass_%s' % user,obfuscate(password))
 		return user,password
 	
+	def addUser(self,user,password):
+		userlist = __addon__.getSetting('user_list').split('@,@')
+		if user in userlist: return True
+		try:
+			self.esession.authenticate(user, password)
+		except EvernoteSessionError as e:
+			if e.code == Errors.EDAMErrorCode.INVALID_AUTH:
+				self.error(e, 'Failed To Authenticate User')
+				return False
+		except:
+			self.error(message='Failed To Authenticate User')
+			return False
+		if not self.usersCount(): userlist = []
+		userlist.append(user)
+		__addon__.setSetting('user_list','@,@'.join(userlist))
+		return True
+		
+	def chooseUser(self,index=None):
+		if not self.usersCount(): return None
+		users = __addon__.getSetting('user_list').split('@,@')
+		if index != None: return user[index]
+		idx = xbmcgui.Dialog().select(__lang__(30019),users)
+		if idx < 0:
+			return None
+		else:
+			return users[idx]
+		
+	def createNewUser(self):
+		user,password = self.getUserPass(force=True)
+		if not user: return
+		self.changeUser(user)
+	
+	def changeUser(self,user=None):
+		if not user: user = self.chooseUser()
+		if not user: return
+		if not self.startSession(user): return
+		__addon__.setSetting('last_user',user)
+		self.clearNotes()
+		self.showNotebooks()
+		self.window.initFocus()
+		
+	def usersCount(self):
+		ulist = __addon__.getSetting('user_list')
+		if not ulist: return 0
+		users = ulist.split('@,@')
+		return len(users)
+			
 	def doContextMenu(self):
-		options = [__lang__(30011),__lang__(30012),__lang__(30013)]
-		optionIDs = ['xbmclog','screenshot','write']
+		options = [__lang__(30011),__lang__(30012),__lang__(30013),__lang__(30014),__lang__(30015)]
+		optionIDs = ['xbmclog','screenshot','write','adduser','changeuser']
 
 		idx = xbmcgui.Dialog().select(__lang__(30010),options)
 		if idx < 0:
 			return
 		else:
 			option = optionIDs[idx]
-			
-		if option == 'xbmclog':
-			self.createXBMCLogNote()
-		elif option == 'screenshot':
-			self.createScreenshotNote()
-		elif option == 'write':
-			self.createWriteNote()
+		try:
+			if option == 'xbmclog':
+				self.createXBMCLogNote()
+			elif option == 'screenshot':
+				self.createScreenshotNote()
+			elif option == 'write':
+				self.createWriteNote()
+			elif option == 'adduser':
+				self.createNewUser()
+			elif option == 'changeuser':
+				self.changeUser()
+		except EvernoteSessionError as e:
+			self.error(e,message='Error Getting Notebooks')
+		except:
+			self.error(message='Error Getting Notebooks')
 	
 	def getXBMCLog(self):
 		log_file = xbmc.translatePath('special://temp/xbmc.log')
@@ -327,48 +477,75 @@ class XNoteSession():
 		self.notebookSelected()
 	
 	def showNotebooks(self):
-		notebooks = self.esession.getNotebooks()
-		ncc = self.esession.getNotebookCounts()
-		items = []
-		for nb in notebooks:
-			count = ncc.notebookCounts.get(nb.guid)
-			ct_disp = ''
-			if count: ct_disp = ' (%s)' % count
-			item = xbmcgui.ListItem()
-			item.setThumbnailImage('')
-			item.setLabel(nb.name + ct_disp)
-			item.setProperty('guid',nb.guid)
-			item.setProperty('name',nb.name)
-			items.append(item)
-		wlist = self.window.getControl(120)
-		wlist.addItems(items)
+		self.startProgress(text=__lang__(30031))
+		try:
+			notebooks = self.esession.getNotebooks()
+			ncc = self.esession.getNotebookCounts()
+			items = []
+			for nb in notebooks:
+				count = ncc.notebookCounts.get(nb.guid)
+				ct_disp = ''
+				if count: ct_disp = ' (%s)' % count
+				item = xbmcgui.ListItem()
+				item.setThumbnailImage('')
+				item.setLabel(nb.name + ct_disp)
+				item.setProperty('guid',nb.guid)
+				item.setProperty('name',nb.name)
+				items.append(item)
+			wlist = self.window.getControl(120)
+			wlist.reset()
+			wlist.addItems(items)
+		except EvernoteSessionError as e:
+			self.error(e,message='Error Getting Notebooks')
+		except:
+			self.error(message='Error Getting Notebooks')
+		finally:
+			self.endProgress()
+		
+	def clearNotes(self):
+		self.setNotebookTitleDisplay()
+		self.window.getControl(125).reset()
 		
 	def showNotes(self,nbguid=None):
 		if not nbguid: return
-		noteList = self.esession.getNoteList(nbguid)
-		items = []
-		for note in noteList.notes: 
-			path = ''
-			if note.resources:
-				#print 'test'
-				#print note.resources
-				for res in note.resources:
-					#print res.mime
-					if 'image/' in res.mime:
-						ext = '.' + res.mime.split('/',1)[1]
-						filename = note.guid + ext
-						path = self.isCached(filename)
-						if not path:
-							data = self.esession.getResourceData(res.guid)
-							path = self.cacheImage(filename,data)
-			item = xbmcgui.ListItem()
-			item.setThumbnailImage(path)
-			item.setLabel(note.title)
-			item.setProperty('guid',note.guid)
-			items.append(item)
-		items.reverse()
-		wlist = self.window.getControl(125)
-		wlist.addItems(items)
+		self.startProgress(text=__lang__(30032))
+		try:
+			noteList = self.esession.getNoteList(nbguid)
+			items = []
+			ct=0
+			tot= len(noteList.notes)
+			for note in noteList.notes: 
+				path = ''
+				self.updateProgress(ct,__lang__(30032),note.title,'',total=tot)
+				if note.resources:
+					#print 'test'
+					#print note.resources
+					for res in note.resources:
+						#print res.mime
+						if 'image/' in res.mime:
+							self.updateProgress(ct,__lang__(30032),note.title,res.attributes.fileName or '',total=tot)
+							ext = '.' + res.mime.split('/',1)[1]
+							filename = note.guid + ext
+							path = self.isCached(filename)
+							if not path:
+								data = self.esession.getResourceData(res.guid)
+								path = self.cacheImage(filename,data)
+				item = xbmcgui.ListItem()
+				item.setThumbnailImage(path)
+				item.setLabel(note.title)
+				item.setProperty('guid',note.guid)
+				items.append(item)
+				ct+=1
+			items.reverse()
+			wlist = self.window.getControl(125)
+			wlist.reset()
+			wlist.addItems(items)
+		except EvernoteSessionError as e:
+			self.error(e,message='Error Getting Notes')
+		except:
+			self.error(message='Error Getting Notes')
+		finally:
+			self.endProgress()
 		
 	def cacheImage(self,filename,data):
 		path = os.path.join(self.CACHE_PATH,filename)
@@ -379,31 +556,50 @@ class XNoteSession():
 		
 	def isCached(self,filename):
 		path = os.path.join(self.CACHE_PATH,filename)
-		if os.path.exists(path): return path
+		if os.path.exists(path):
+			st = os.stat(path)
+			mtime = st[8] #modification time
+			#modify the file timestamp
+			os.utime(path,(int(time.time()),mtime))
+			return path
 		return ''
 	
 	def viewNote(self,note):
-		contents = note.content
-		contents = re.sub('<!DOCTYPE.*?>','',contents)
-		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/>',r'<img src="\1" />',contents)
-		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/>',r'<img src="\1" />',contents)
-		noteFile = os.path.join(self.CACHE_PATH,'notecontents.html')
-		nf = open(noteFile,'w')
-		nf.write(contents)
-		nf.close()
-		if note.resources:
-			for res in note.resources:
-				if 'image' in res.mime:
-					#ext = '.' + res.mime.split('/',1)[1]
-					filename = binascii.hexlify(res.data.bodyHash)
-					path = self.isCached(filename)
-					if not path:
-						data = self.esession.getResourceData(res.guid)
-						path = self.cacheImage(filename,data)
-						
-		url = 'file://%s' % noteFile
+		self.startProgress(text=__lang__(30033))
+		try:
+			contents = note.content
+			contents = re.sub('<!DOCTYPE.*?>','',contents)
+			contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/>',r'<img src="\1" />',contents)
+			contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/>',r'<img src="\1" />',contents)
+			noteFile = os.path.join(self.CACHE_PATH,'notecontents.html')
+			nf = open(noteFile,'w')
+			nf.write(contents)
+			nf.close()
+			if note.resources:
+				ct=0
+				tot=len(note.resources)
+				self.updateProgress(0,__lang__(30034))
+				for res in note.resources:
+					if 'image' in res.mime:
+						self.updateProgress(ct,__lang__(30034),res.attributes.fileName or '',total=tot)
+						#ext = '.' + res.mime.split('/',1)[1]
+						filename = binascii.hexlify(res.data.bodyHash)
+						path = self.isCached(filename)
+						if not path:
+							data = self.esession.getResourceData(res.guid)
+							path = self.cacheImage(filename,data)
+					ct+=1		
+			url = 'file://%s' % noteFile
+		except EvernoteSessionError as e:
+			self.error(e,message='Error Getting Note')
+		except:
+			self.error(message='Error Getting Note')
+		finally:
+			self.endProgress()
+			
 		from webviewer import webviewer #@UnresolvedImport
 		url,html = webviewer.getWebResult(url) #@UnusedVariable
+		
 	
 class BaseWindow(xbmcgui.WindowXML):
 	def __init__( self, *args, **kwargs):
@@ -415,10 +611,18 @@ class BaseWindow(xbmcgui.WindowXML):
 	def onAction(self,action):
 		#if action == ACTION_PARENT_DIR or
 		if action == ACTION_PREVIOUS_MENU:
+			try:
+				self.onClose()
+			except:
+				ERROR('BaseWindow - doClose() Error')
+				
 			self.close()
 			return True
 		else:
 			return False
+		
+	def onClose(self):
+		pass
 		
 class MainWindow(BaseWindow):
 	def __init__( self, *args, **kwargs):
@@ -426,7 +630,12 @@ class MainWindow(BaseWindow):
 		BaseWindow.__init__( self, *args, **kwargs )
 		
 	def onInit(self):
-		self.session = XNoteSession(self)
+		if not self.session:
+			self.session = XNoteSession(self)
+			self.initFocus()
+		
+	def initFocus(self):
+		self.setFocusId(120)
 		
 	def onClick( self, controlID ):
 		if controlID == 120:
@@ -438,6 +647,9 @@ class MainWindow(BaseWindow):
 		if BaseWindow.onAction(self, action): return
 		if action == ACTION_CONTEXT_MENU:
 			self.session.doContextMenu()
+			
+	def onClose(self):
+		self.session.cleanCache()
 
 def openWindow(window_name,session=None,**kwargs):
 	windowFile = 'script-evernote-%s.xml' % window_name

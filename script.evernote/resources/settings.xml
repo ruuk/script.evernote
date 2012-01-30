@@ -2,6 +2,6 @@
 <settings>
   <!-- General -->
   <category label="30000">
-    <setting id="login_user" type="text" label="30001" default="" />
+    <setting id="choose_user" type="bool" label="30001" default="false" />
   </category>
 </settings>

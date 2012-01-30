@@ -1,17 +1,28 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <strings>
 	<string id="30000">General</string>
-    <string id="30001">Login Username</string>
+    <string id="30001">Choose User On Start</string>
     
     <string id="30010">Options</string>
     <string id="30011">Create XBMC Log Note</string>
     <string id="30012">Create Screenshot Note</string>
     <string id="30013">Write Note</string>
+    <string id="30014">Add User</string>
+    <string id="30015">Change User</string>
+    
+    <string id="30019">Choose User</string>
     
     <string id="30020">Enter Note Title</string>
     <string id="30021">Enter Note</string>
     <string id="30022">Select File</string>
     
+    <string id="30030">Please Wait</string>
+    <string id="30031">Loading Notebooks...</string>
+    <string id="30032">Loading Notes...</string>
+    <string id="30033">Loading Note...</string>
+    <string id="30034">Loading Resources...</string>
+    
+    <string id="30040">ERROR</string>
     
     <string id="3020">NOTEBOOKS</string>
     <string id="3021">NOTES</string>
