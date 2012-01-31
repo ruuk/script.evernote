@@ -3,5 +3,6 @@
   <!-- General -->
   <category label="30000">
     <setting id="choose_user" type="bool" label="30001" default="false" />
+    <setting id="save_passwords" type="bool" label="30002" default="true" />
   </category>
 </settings>

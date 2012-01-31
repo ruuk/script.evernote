@@ -2,6 +2,7 @@
 <strings>
 	<string id="30000">General</string>
     <string id="30001">Choose User On Start</string>
+    <string id="30002">Save Passwords</string>
     
     <string id="30010">Options</string>
     <string id="30011">Create XBMC Log Note</string>
@@ -9,12 +10,18 @@
     <string id="30013">Write Note</string>
     <string id="30014">Add User</string>
     <string id="30015">Change User</string>
+    <string id="30016">Create Notebook</string>
+    <string id="30017">Delete Note</string>
+    <string id="30018">Delete Notebook</string>
     
     <string id="30019">Choose User</string>
     
     <string id="30020">Enter Note Title</string>
     <string id="30021">Enter Note</string>
     <string id="30022">Select File</string>
+    <string id="30023">Enter Notebook Name</string>
+    <string id="30024">Are you sure?</string>
+    <string id="30025">Really Delete?</string>
     
     <string id="30030">Please Wait</string>
     <string id="30031">Loading Notebooks...</string>
@@ -23,7 +30,24 @@
     <string id="30034">Loading Resources...</string>
     
     <string id="30040">ERROR</string>
+    <string id="30041">Error Starting Session</string>
+    <string id="30042">Failed To Authenticate User</string>
+    <string id="30043">Error Getting Notebooks</string>
+    <string id="30044">Error Getting Notes</string>
+    <string id="30045">Error Getting Note</string>
+    <string id="30046">Error Creating Note</string>
+    <string id="30047">Error Adding User</string>
+    <string id="30048">Error Changing User</string>
+    <string id="30049">Error Creating Notebook</string>
+    <string id="30050">Notebook Already Exists</string>
+    <string id="30051">Error Deleting Note</string>
+    <string id="30052">Error Deleting Notebook</string>
     
+    <string id="30060">XBMC Screenshot: %s</string>
+    <string id="30061">Enter Username</string>
+    <string id="30062">Enter Password for %s</string>
+    <string id="30063">XBMC Log</string>
+        
     <string id="3020">NOTEBOOKS</string>
     <string id="3021">NOTES</string>
 </strings>

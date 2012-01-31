@@ -164,7 +164,13 @@ class EvernoteSession():
 		return notebooks
 
 	def getNotebookCounts(self):
-		ncc = self.noteStore.findNoteCounts(self.authToken,NoteStore.NoteFilter(),False)
+		try:
+			ncc = self.noteStore.findNoteCounts(self.authToken,NoteStore.NoteFilter(),False)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('getNotebookCounts()','noteStore.findNoteCounts',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('getNotebookCounts()','noteStore.findNoteCounts',e)
+		
 		return ncc
 		
 	def getNotebookByGuid(self,guid):
@@ -180,7 +186,12 @@ class EvernoteSession():
 		return None
 	
 	def getNoteByGuid(self,guid):
-		note = self.noteStore.getNote(self.authToken, guid, True, False, False, False)
+		try:
+			note = self.noteStore.getNote(self.authToken, guid, True, False, False, False)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('getNoteByGuid()','noteStore.getNote',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('getNoteByGuid()','noteStore.getNote',e)
 		return note
 	
 	def getNoteList(self,guid=None,notebook=None):
@@ -190,11 +201,27 @@ class EvernoteSession():
 		LOG('Getting notes for notebook - guid: %s' % guid)
 		nf = NoteStore.NoteFilter()
 		nf.notebookGuid = guid
-		notes = self.noteStore.findNotes(self.authToken,nf,0,999)
+		try:
+			notes = self.noteStore.findNotes(self.authToken,nf,0,999)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('getNoteList()','noteStore.findNotes',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('getNoteList()','noteStore.findNotes',e)
 		return notes
 		
 	def prepareText(self,text):
 		return re.sub('[\n\r]+','<br />',escape(text))
+		
+	def deleteNote(self,guid=None,note=None):
+		if not guid: guid = note.guid
+		try:
+			self.noteStore.deleteNote(self.authToken, guid)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('deleteNote()','noteStore.deleteNote',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('deleteNote()','noteStore.deleteNote',e)
+		
+		LOG("Successfully deleted note with guid: %s" % (guid))
 		
 	def createNote(self,text='',image_files=[],notebook=None,title=''):
 		note = Types.Note()
@@ -242,12 +269,47 @@ class EvernoteSession():
 			note.resources = resources
 			
 		note.content += '</en-note>'
-		createdNote = self.noteStore.createNote(self.authToken, note)
+		try:
+			createdNote = self.noteStore.createNote(self.authToken, note)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('createNote()','noteStore.createNote',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('createNote()','noteStore.createNote',e)
 		
 		LOG("Successfully created a new note with GUID: %s" % createdNote.guid)
+		return createdNote
+	
+	def deleteNotebook(self,guid=None,notebook=None):
+		if not guid: guid = notebook.guid
+		try:
+			self.noteStore.expungeNotebook(self.authToken, guid)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('deleteNotebook()','noteStore.expungeNotebook',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('deleteNotebook()','noteStore.expungeNotebook',e)
+		
+		LOG("Successfully deleted notebook with guid: %s" % (guid))
+		
+	def createNotebook(self,name,default=False):
+		notebook = Types.Notebook()
+		notebook.name = name
+		try:
+			createdNotebook = self.noteStore.createNotebook(self.authToken, notebook)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('createNotebook()','noteStore.createNotebook',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('createNotebook()','noteStore.createNotebook',e)
+		
+		LOG("Successfully created a new notebook with GUID: %s" % createdNotebook.guid)
+		return createdNotebook
 		
 	def getResourceData(self,guid):
-		return self.noteStore.getResourceData(self.authToken, guid)
+		try:
+			return self.noteStore.getResourceData(self.authToken, guid)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('getResourceData()','noteStore.getResourceData',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('getResourceData()','noteStore.getResourceData',e)
 
 def doKeyboard(prompt,default='',hidden=False):
 	keyboard = xbmc.Keyboard(default,prompt)
@@ -276,11 +338,11 @@ class XNoteSession():
 				self.window.close()
 				return
 		except EvernoteSessionError as e:
-			self.error(e,message='Error Starting Session')
+			self.error(e,message=__lang__(30041))
 			self.window.close()
 			return
 		except:
-			self.error(message='Error Starting Session')
+			self.error(message=__lang__(30041))
 			self.window.close()
 			return
 			
@@ -362,7 +424,7 @@ class XNoteSession():
 	
 	def getUserPass(self,user=None,force=False):
 		if force:
-			user = doKeyboard('Enter Username')
+			user = doKeyboard(__lang__(30061))
 		if not user:
 			if __addon__.getSetting('choose_user') == 'true':
 				user = self.chooseUser()
@@ -371,15 +433,18 @@ class XNoteSession():
 		if not user:
 			user = self.chooseUser(0)
 		if not user:
-			user = doKeyboard('Enter Username')
+			user = doKeyboard(__lang__(30061))
+		if not __addon__.getSetting('save_passwords') == 'true':
+			__addon__.setSetting('login_pass_%s' % user,'')
 		password = __addon__.getSetting('login_pass_%s' % user)
 		if password:
 			password = deObfuscate(password)
 		else:
-			password = doKeyboard('Enter Password',hidden=True)
+			password = doKeyboard(__lang__(30062) % user,hidden=True)
 		if not self.addUser(user,password): return None,None
 		__addon__.setSetting('last_user',user)
-		__addon__.setSetting('login_pass_%s' % user,obfuscate(password))
+		if __addon__.getSetting('save_passwords') == 'true':
+			__addon__.setSetting('login_pass_%s' % user,obfuscate(password))
 		return user,password
 	
 	def addUser(self,user,password):
@@ -389,10 +454,10 @@ class XNoteSession():
 			self.esession.authenticate(user, password)
 		except EvernoteSessionError as e:
 			if e.code == Errors.EDAMErrorCode.INVALID_AUTH:
-				self.error(e, 'Failed To Authenticate User')
+				self.error(e, __lang__(30042))
 				return False
 		except:
-			self.error(message='Failed To Authenticate User')
+			self.error(message=__lang__(30042))
 			return False
 		if not self.usersCount(): userlist = []
 		userlist.append(user)
@@ -402,7 +467,7 @@ class XNoteSession():
 	def chooseUser(self,index=None):
 		if not self.usersCount(): return None
 		users = __addon__.getSetting('user_list').split('@,@')
-		if index != None: return user[index]
+		if index != None: return users[index]
 		idx = xbmcgui.Dialog().select(__lang__(30019),users)
 		if idx < 0:
 			return None
@@ -430,29 +495,48 @@ class XNoteSession():
 		return len(users)
 			
 	def doContextMenu(self):
-		options = [__lang__(30011),__lang__(30012),__lang__(30013),__lang__(30014),__lang__(30015)]
-		optionIDs = ['xbmclog','screenshot','write','adduser','changeuser']
+		options = [__lang__(30011),__lang__(30012),__lang__(30013),__lang__(30016),__lang__(30014),__lang__(30015)]
+		optionIDs = ['xbmclog','screenshot','write','notebook','adduser','changeuser']
 
+		if self.window.getFocusId() == 125:
+			options.append(__lang__(30017))
+			optionIDs.append('deletenote')
+		elif self.window.getFocusId() == 120:
+			options.append(__lang__(30018))
+			optionIDs.append('deletenotebook')
+			
 		idx = xbmcgui.Dialog().select(__lang__(30010),options)
 		if idx < 0:
 			return
 		else:
 			option = optionIDs[idx]
 		try:
+			err_msg = __lang__(30046)
 			if option == 'xbmclog':
 				self.createXBMCLogNote()
 			elif option == 'screenshot':
 				self.createScreenshotNote()
 			elif option == 'write':
 				self.createWriteNote()
+			elif option == 'notebook':
+				err_msg = __lang__(30049)
+				self.createNotebook()
 			elif option == 'adduser':
+				err_msg = __lang__(30047)
 				self.createNewUser()
 			elif option == 'changeuser':
+				err_msg = __lang__(30048)
 				self.changeUser()
+			elif option == 'deletenote':
+				err_msg = __lang__(30051)
+				self.deleteNote()
+			elif option == 'deletenotebook':
+				err_msg = __lang__(30052)
+				self.deleteNotebook()
 		except EvernoteSessionError as e:
-			self.error(e,message='Error Getting Notebooks')
+			self.error(e,message=err_msg)
 		except:
-			self.error(message='Error Getting Notebooks')
+			self.error(message=err_msg)
 	
 	def getXBMCLog(self):
 		log_file = xbmc.translatePath('special://temp/xbmc.log')
@@ -462,12 +546,12 @@ class XNoteSession():
 		return data
 	
 	def createXBMCLogNote(self):
-		self.esession.createNote(self.getXBMCLog(),title='XBMC Log')
+		self.esession.createNote(self.getXBMCLog(),title=__lang__(30063))
 		
 	def createScreenshotNote(self):
 		fname = xbmcgui.Dialog().browse(1, __lang__(30022), 'files','.png|.jpg|.gif',True,False,xbmc.translatePath('special://screenshots/'))
 		if not fname: return
-		self.esession.createNote(title='XBMC Screenshot: %s' % os.path.basename(fname),image_files=[fname])
+		self.esession.createNote(title=__lang__(30060) % os.path.basename(fname),image_files=[fname])
 	
 	def createWriteNote(self):
 		title = doKeyboard(__lang__(30020))
@@ -476,6 +560,35 @@ class XNoteSession():
 		self.esession.createNote(text,title=title)
 		self.notebookSelected()
 	
+	def createNotebook(self):
+		title = doKeyboard(__lang__(30023))
+		if not title: return
+		if self.esession.notebooks:
+			for n in self.esession.notebooks:
+				if n.name == title:
+					self.showError(__lang__(30050))
+					return
+		self.esession.createNotebook(title)
+		self.showNotebooks()
+		
+	def deleteNote(self):
+		item = self.getFocusedItem(125)
+		guid = item.getProperty('guid')
+		title = item.getLabel()
+		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), title):
+			self.esession.deleteNote(guid)
+			self.showNotebooks()
+			self.notebookSelected()
+			
+	def deleteNotebook(self):
+		item = self.getFocusedItem(120)
+		guid = item.getProperty('guid')
+		title = item.getLabel()
+		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), title):
+			self.esession.deleteNotebook(guid)
+			self.showNotebooks()
+			#TODO: Perhaps clear the note list, when this is working we can check to see if we can still access the notes
+		
 	def showNotebooks(self):
 		self.startProgress(text=__lang__(30031))
 		try:
@@ -496,9 +609,9 @@ class XNoteSession():
 			wlist.reset()
 			wlist.addItems(items)
 		except EvernoteSessionError as e:
-			self.error(e,message='Error Getting Notebooks')
+			self.error(e,message=__lang__(30043))
 		except:
-			self.error(message='Error Getting Notebooks')
+			self.error(message=__lang__(30043))
 		finally:
 			self.endProgress()
 		
@@ -541,9 +654,9 @@ class XNoteSession():
 			wlist.reset()
 			wlist.addItems(items)
 		except EvernoteSessionError as e:
-			self.error(e,message='Error Getting Notes')
+			self.error(e,message=__lang__(30044))
 		except:
-			self.error(message='Error Getting Notes')
+			self.error(message=__lang__(30044))
 		finally:
 			self.endProgress()
 		
@@ -591,9 +704,9 @@ class XNoteSession():
 					ct+=1		
 			url = 'file://%s' % noteFile
 		except EvernoteSessionError as e:
-			self.error(e,message='Error Getting Note')
+			self.error(e,message=__lang__(30045))
 		except:
-			self.error(message='Error Getting Note')
+			self.error(message=__lang__(30045))
 		finally:
 			self.endProgress()
 			
@@ -657,13 +770,4 @@ def openWindow(window_name,session=None,**kwargs):
 	w.doModal()			
 	del w
 		
-if False:
-	es = EvernoteSession()
-	user,password = es.processCommandLine()
-	es.setUserPass(user, password)
-	es.startSession()
-	es.getNotebooks()
-	nb = es.getNotebookByName('Frog Notes')
-	es.createNote('This is a third test note!', ['icon.png'],nb)
-else:
-	openWindow('main')
+openWindow('main')
