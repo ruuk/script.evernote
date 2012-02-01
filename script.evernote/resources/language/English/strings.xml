@@ -3,6 +3,7 @@
 	<string id="30000">General</string>
     <string id="30001">Choose User On Start</string>
     <string id="30002">Save Passwords</string>
+    <string id="30003">Note Creation: Ask For Target</string>
     
     <string id="30010">Options</string>
     <string id="30011">Create XBMC Log Note</string>
@@ -22,6 +23,8 @@
     <string id="30023">Enter Notebook Name</string>
     <string id="30024">Are you sure?</string>
     <string id="30025">Really Delete?</string>
+    <string id="30026">Move Note</string>
+    <string id="30027">Choose Notebook</string>
     
     <string id="30030">Please Wait</string>
     <string id="30031">Loading Notebooks...</string>
@@ -42,6 +45,7 @@
     <string id="30050">Notebook Already Exists</string>
     <string id="30051">Error Deleting Note</string>
     <string id="30052">Error Deleting Notebook</string>
+    <string id="30055">Error Moving Note</string>
     
     <string id="30060">XBMC Screenshot: %s</string>
     <string id="30061">Enter Username</string>

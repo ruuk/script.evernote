@@ -212,8 +212,8 @@ class EvernoteSession():
 	def prepareText(self,text):
 		return re.sub('[\n\r]+','<br />',escape(text))
 		
-	def deleteNote(self,guid=None,note=None):
-		if not guid: guid = note.guid
+	def deleteNote(self,guid):
+		if not type(guid) == type(''): guid = guid.guid
 		try:
 			self.noteStore.deleteNote(self.authToken, guid)
 		except Errors.EDAMUserException as e:
@@ -232,11 +232,15 @@ class EvernoteSession():
 			if image_files: title = os.path.basename(image_files[0])
 		if not title: title = 'UNTITLED'
 		
+		if type(notebook) == type(''):
+			notebook = self.getNotebookByGuid(notebook)
+			
 		if notebook and not notebook.defaultNotebook:
 			LOG("Creating a new note (%s) in notebook: %s" % (title,notebook.name))
+			note.notebookGuid = notebook.guid
 		else:
 			LOG("Creating a new note (%s) in default notebook: %s" % (title,self.defaultNotebook.name))
-			notebook = self.defaultNotebook
+			#notebook = self.defaultNotebook
 			
 		note.title = title
 		note.content = '<?xml version="1.0" encoding="UTF-8"?>'
@@ -279,6 +283,24 @@ class EvernoteSession():
 		LOG("Successfully created a new note with GUID: %s" % createdNote.guid)
 		return createdNote
 	
+	def moveNote(self,guid,nbguid):
+		try:
+			note = self.noteStore.getNote(	self.authToken,guid,False,False,False,False)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('moveNote()','noteStore.getNote',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('moveNote()','noteStore.getNote',e)
+		
+		note.notebookGuid = nbguid
+		
+		try:
+			self.noteStore.updateNote(self.authToken, note)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError('moveNote()','noteStore.updateNote',e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError('moveNote()','noteStore.updateNote',e)
+		return note
+						
 	def deleteNotebook(self,guid=None,notebook=None):
 		if not guid: guid = notebook.guid
 		try:
@@ -328,6 +350,7 @@ class XNoteSession():
 	def __init__(self,window=None):
 		self.window = window
 		self._pdialog = None
+		self.currentNotebookGuid = None
 		
 		self.CACHE_PATH = os.path.join(xbmc.translatePath(__addon__.getAddonInfo('profile')),'cache')
 		if not os.path.exists(self.CACHE_PATH): os.makedirs(self.CACHE_PATH)
@@ -478,6 +501,7 @@ class XNoteSession():
 		user,password = self.getUserPass(force=True)
 		if not user: return
 		self.changeUser(user)
+		self.notify('Created New User: %s' % user)
 	
 	def changeUser(self,user=None):
 		if not user: user = self.chooseUser()
@@ -498,8 +522,13 @@ class XNoteSession():
 		options = [__lang__(30011),__lang__(30012),__lang__(30013),__lang__(30016),__lang__(30014),__lang__(30015)]
 		optionIDs = ['xbmclog','screenshot','write','notebook','adduser','changeuser']
 
+		options.append('')
+		optionIDs.append('')
+		
 		if self.window.getFocusId() == 125:
+			options.append(__lang__(30026))
 			options.append(__lang__(30017))
+			optionIDs.append('movenote')
 			optionIDs.append('deletenote')
 		elif self.window.getFocusId() == 120:
 			options.append(__lang__(30018))
@@ -527,6 +556,9 @@ class XNoteSession():
 			elif option == 'changeuser':
 				err_msg = __lang__(30048)
 				self.changeUser()
+			elif option == 'movenote':
+				err_msg = __lang__(30053)
+				self.moveNote()
 			elif option == 'deletenote':
 				err_msg = __lang__(30051)
 				self.deleteNote()
@@ -546,19 +578,33 @@ class XNoteSession():
 		return data
 	
 	def createXBMCLogNote(self):
-		self.esession.createNote(self.getXBMCLog(),title=__lang__(30063))
+		nb = None
+		if __addon__.getSetting('choose_notebook') == 'true': nb = self.chooseNotebook()
+		note = self.esession.createNote(self.getXBMCLog(),title=__lang__(30063),notebook=nb)
+		self.updateNotebookCounts()
+		self.showNotes()
+		self.notify('Created Log Note: %s' % note.title)
 		
 	def createScreenshotNote(self):
+		nb = None
+		if __addon__.getSetting('choose_notebook') == 'true': nb = self.chooseNotebook()
 		fname = xbmcgui.Dialog().browse(1, __lang__(30022), 'files','.png|.jpg|.gif',True,False,xbmc.translatePath('special://screenshots/'))
 		if not fname: return
-		self.esession.createNote(title=__lang__(30060) % os.path.basename(fname),image_files=[fname])
+		note = self.esession.createNote(title=__lang__(30060) % os.path.basename(fname),image_files=[fname],notebook=nb)
+		self.updateNotebookCounts()
+		self.showNotes()
+		self.notify('Created Screenshot Note: %s' % note.title)
 	
 	def createWriteNote(self):
+		nb = None
+		if __addon__.getSetting('choose_notebook') == 'true': nb = self.chooseNotebook()
 		title = doKeyboard(__lang__(30020))
 		text = doKeyboard(__lang__(30021))
 		if not text: return
-		self.esession.createNote(text,title=title)
-		self.notebookSelected()
+		note = self.esession.createNote(text,title=title,notebook=nb)
+		self.updateNotebookCounts()
+		self.showNotes()
+		self.notify('Created Note: %s' % note.title)
 	
 	def createNotebook(self):
 		title = doKeyboard(__lang__(30023))
@@ -568,8 +614,9 @@ class XNoteSession():
 				if n.name == title:
 					self.showError(__lang__(30050))
 					return
-		self.esession.createNotebook(title)
+		nb = self.esession.createNotebook(title)
 		self.showNotebooks()
+		self.notify('Created Notebook: %s' % nb.name)
 		
 	def deleteNote(self):
 		item = self.getFocusedItem(125)
@@ -577,17 +624,46 @@ class XNoteSession():
 		title = item.getLabel()
 		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), title):
 			self.esession.deleteNote(guid)
-			self.showNotebooks()
-			self.notebookSelected()
+			self.updateNotebookCounts()
+			self.showNotes()
+			self.notify('Deleted (To Trash) Note: %s' % title)
 			
 	def deleteNotebook(self):
 		item = self.getFocusedItem(120)
 		guid = item.getProperty('guid')
-		title = item.getLabel()
-		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), title):
+		name = item.getProperty('name')
+		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), name):
 			self.esession.deleteNotebook(guid)
 			self.showNotebooks()
+			self.notify('Deleted Notebook: %s' % name)
 			#TODO: Perhaps clear the note list, when this is working we can check to see if we can still access the notes
+		
+	def moveNote(self):
+		item = self.getFocusedItem(125)
+		guid = item.getProperty('guid')
+		title = item.getLabel()
+
+		nbguid = self.chooseNotebook()
+		if not nbguid: return
+		
+		self.esession.moveNote(guid, nbguid)
+		self.updateNotebookCounts()
+		self.showNotes()
+		self.notify('Moved Note: %s' % title)
+		
+	def chooseNotebook(self):
+		nblist = []
+		guids = []
+		
+		for nb in self.esession.getNotebooks():
+			nblist.append(nb.name)
+			guids.append(nb.guid)
+			
+		idx = xbmcgui.Dialog().select(__lang__(30027),nblist)
+		if idx < 0:
+			return None
+		
+		return guids[idx]
 		
 	def showNotebooks(self):
 		self.startProgress(text=__lang__(30031))
@@ -615,12 +691,28 @@ class XNoteSession():
 		finally:
 			self.endProgress()
 		
+	def updateNotebookCounts(self):
+		ncc = self.esession.getNotebookCounts()
+		wlist = self.window.getControl(120)
+		for idx in range(0,wlist.size()):
+			item = wlist.getListItem(idx)
+			guid = item.getProperty('guid')
+			name = item.getProperty('name')
+			count = ncc.notebookCounts.get(guid)
+			ct_disp = ''
+			if count: ct_disp = ' (%s)' % count
+			item.setLabel(name + ct_disp)
+		
 	def clearNotes(self):
 		self.setNotebookTitleDisplay()
 		self.window.getControl(125).reset()
+		self.currentNotebookGuid = None
 		
 	def showNotes(self,nbguid=None):
+		if not nbguid: nbguid = self.currentNotebookGuid
 		if not nbguid: return
+		self.currentNotebookGuid = nbguid
+		
 		self.startProgress(text=__lang__(30032))
 		try:
 			noteList = self.esession.getNoteList(nbguid)
@@ -712,6 +804,11 @@ class XNoteSession():
 			
 		from webviewer import webviewer #@UnresolvedImport
 		url,html = webviewer.getWebResult(url) #@UnusedVariable
+		
+	def notify(self,message,header='X-NOTE'):
+		mtime=2000
+		image=''
+		xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % (header,message,mtime,image))
 		
 	
 class BaseWindow(xbmcgui.WindowXML):
