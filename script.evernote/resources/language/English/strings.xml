@@ -51,7 +51,20 @@
     <string id="30061">Enter Username</string>
     <string id="30062">Enter Password for %s</string>
     <string id="30063">XBMC Log</string>
+    
+    <string id="30100">Created New User: %s</string>
+    <string id="30101">Created Log Note: %s</string>
+    <string id="30102">Created Screenshot Note: %s</string>
+    <string id="30103">Created Note: %s</string>
+    <string id="30104">Created Notebook: %s</string>
+    <string id="30105">Deleted (To Trash) Note: %s</string>
+    <string id="30106">Deleted Notebook: %s</string>
+    <string id="30107">Moved Note: %s</string>
+    
+    <string id="30220">Waiting...</string>
+    <string id="30221">Waiting for thread to stop...</string>
         
     <string id="3020">NOTEBOOKS</string>
     <string id="3021">NOTES</string>
+    <string id="3022">LOADING NOTE...</string>
 </strings>

@@ -13,36 +13,28 @@
         <posx>0</posx>
         <posy>0</posy>
         <width>412</width>
-        <height>700</height>
+        <height>400</height>
         <texture border="10">script-evernote-panel.png</texture>
       </control>
       <control type="label">
         <posx>20</posx>
         <posy>0</posy>
-        <width>412</width>
-        <height>66</height>
+        <width>372</width>
+        <height>40</height>
         <font>font30_title</font>
         <aligny>center</aligny>
         <textcolor>black</textcolor>
         <align>left</align>
         <label>$LOCALIZE[SCRIPT3020]</label>
       </control>
-      <control type="image">
-        <posx>0</posx>
-        <posy>0</posy>
-        <width>412</width>
-        <height>700</height>
-        <colordiffuse>66FFFFFF</colordiffuse>
-        <texture>script-evernote-black-square.png</texture>
-        <visible>!Control.HasFocus(120)</visible>
-      </control>
+      
       <!-- ** Required ** Do not change <id> or <type> -->
       <control type="list" id="120">
         <posx>10</posx>
-        <posy>76</posy>
-        <width>392</width>
-        <height>614</height>
-        <onleft>125</onleft>
+        <posy>50</posy>
+        <width>388</width>
+        <height>334</height>
+        <onleft>131</onleft>
         <onright>125</onright>
         <onup>120</onup>
         <ondown>120</ondown>
@@ -53,7 +45,7 @@
           <control type="label">
             <posx>5</posx>
             <posy>0</posy>
-            <width>382</width>
+            <width>388</width>
             <height>38</height>
             <font>font18</font>
             <aligny>center</aligny>
@@ -67,7 +59,7 @@
           <control type="image">
             <posx>0</posx>
             <posy>0</posy>
-            <width>392</width>
+            <width>378</width>
             <height>38</height>
             <texture border="10">script-evernote-list-focus.png</texture>
           </control>
@@ -75,7 +67,7 @@
           <control type="label">
             <posx>5</posx>
             <posy>0</posy>
-            <width>400</width>
+            <width>388</width>
             <height>38</height>
             <font>font18</font>
             <aligny>center</aligny>
@@ -88,17 +80,17 @@
         </focusedlayout>
       </control>
       <control type="group">
-        <posx>1055</posx>
-        <posy>152</posy>
+        <posx>393</posx>
+        <posy>50</posy>
         <control type="scrollbar" id="121">
           <description>scroll bar indicator for lists</description>
           <posx>0</posx>
           <posy>0</posy>
           <width>12</width>
-          <height>380</height>
-          <texturesliderbackground border="6">default-scroll_back.png</texturesliderbackground>
-          <texturesliderbar border="6">default-scroll_mid.png</texturesliderbar>
-          <texturesliderbarfocus border="6">default-scroll_mid.png</texturesliderbarfocus>
+          <height>339</height>
+          <texturesliderbackground border="6">script-evernote-list-focus.png</texturesliderbackground>
+          <texturesliderbar border="6">script-evernote-list-focus.png</texturesliderbar>
+          <texturesliderbarfocus border="6">script-evernote-list-focus.png</texturesliderbarfocus>
           <textureslidernib>-</textureslidernib>
           <textureslidernibfocus>-</textureslidernibfocus>
           <orientation>vertical</orientation>
@@ -106,7 +98,18 @@
           <visible>Control.IsVisible(120)</visible>
         </control>
       </control>
+      <control type="image">
+        <posx>0</posx>
+        <posy>0</posy>
+        <width>412</width>
+        <height>400</height>
+        <colordiffuse>66FFFFFF</colordiffuse>
+        <texture>script-evernote-black-square.png</texture>
+        <visible>!Control.HasFocus(120)</visible>
+      </control>
     </control>
+    
+    <!--                                           NOTES LIST                                             -->
     <control type="group">
       <posx>431</posx>
       <posy>10</posy>
@@ -114,41 +117,33 @@
         <posx>0</posx>
         <posy>0</posy>
         <width>839</width>
-        <height>700</height>
+        <height>400</height>
         <texture border="10">script-evernote-panel.png</texture>
       </control>
       <control type="label" id="130">
         <posx>20</posx>
         <posy>0</posy>
-        <width>839</width>
-        <height>66</height>
+        <width>799</width>
+        <height>40</height>
         <font>font30_title</font>
         <aligny>center</aligny>
         <textcolor>black</textcolor>
         <align>left</align>
         <label>$LOCALIZE[SCRIPT3021]</label>
       </control>
-      <control type="image">
-        <posx>0</posx>
-        <posy>0</posy>
-        <width>839</width>
-        <height>700</height>
-        <colordiffuse>66FFFFFF</colordiffuse>
-        <texture>script-evernote-black-square.png</texture>
-        <visible>!Control.HasFocus(125)</visible>
-      </control>
+      
       <!-- ** Required ** Do not change <id> or <type> -->
       <control type="list" id="125">
       	<posx>10</posx>
-        <posy>76</posy>
-        <width>819</width>
-        <height>614</height>
+        <posy>50</posy>
+        <width>805</width>
+        <height>339</height>
         <onleft>120</onleft>
-        <onright>120</onright>
+        <onright>131</onright>
         <onup>125</onup>
         <ondown>125</ondown>
         <viewtype label="535">list</viewtype>
-        <pagecontrol>121</pagecontrol>
+        <pagecontrol>126</pagecontrol>
         <scrolltime>200</scrolltime>
         <itemlayout height="38">
           <control type="image">
@@ -162,7 +157,7 @@
           <control type="label">
             <posx>42</posx>
             <posy>0</posy>
-            <width>867</width>
+            <width>753</width>
             <height>38</height>
             <font>font18</font>
             <aligny>center</aligny>
@@ -176,7 +171,7 @@
           <control type="image">
             <posx>0</posx>
             <posy>0</posy>
-            <width>819</width>
+            <width>805</width>
             <height>38</height>
             <texture border="10">script-evernote-list-focus.png</texture>
             <visible>Control.HasFocus(125)</visible>
@@ -192,7 +187,7 @@
           <control type="label">
             <posx>42</posx>
             <posy>0</posy>
-            <width>867</width>
+            <width>753</width>
             <height>38</height>
             <font>font18</font>
             <aligny>center</aligny>
@@ -204,23 +199,112 @@
         </focusedlayout>
       </control>
       <control type="group">
-        <posx>1055</posx>
-        <posy>152</posy>
+        <posx>820</posx>
+        <posy>50</posy>
         <control type="scrollbar" id="126">
           <description>scroll bar indicator for lists</description>
           <posx>0</posx>
           <posy>0</posy>
           <width>12</width>
-          <height>380</height>
-          <texturesliderbackground border="6">default-scroll_back.png</texturesliderbackground>
-          <texturesliderbar border="6">default-scroll_mid.png</texturesliderbar>
-          <texturesliderbarfocus border="6">default-scroll_mid.png</texturesliderbarfocus>
+          <height>339</height>
+          <texturesliderbackground border="6">script-evernote-list-focus.png</texturesliderbackground>
+          <texturesliderbar border="6">script-evernote-list-focus.png</texturesliderbar>
+          <texturesliderbarfocus border="6">script-evernote-list-focus.png</texturesliderbarfocus>
           <textureslidernib>-</textureslidernib>
           <textureslidernibfocus>-</textureslidernibfocus>
           <orientation>vertical</orientation>
           <showonepage>false</showonepage>
-          <visible>Control.IsVisible(120)</visible>
+          <visible>Control.IsVisible(125)</visible>
         </control>
+      </control>
+      <control type="image">
+        <posx>0</posx>
+        <posy>0</posy>
+        <width>839</width>
+        <height>400</height>
+        <colordiffuse>66FFFFFF</colordiffuse>
+        <texture>script-evernote-black-square.png</texture>
+        <visible>!Control.HasFocus(125)</visible>
+      </control>
+    </control>
+    <control type="group">
+      <posx>10</posx>
+      <posy>420</posy>
+  	  <control type="image">
+        <posx>0</posx>
+        <posy>0</posy>
+        <width>1260</width>
+        <height>290</height>
+        <texture border="10">script-evernote-panel.png</texture>
+      </control>
+      <control type="label">
+        <posx>20</posx>
+        <posy>0</posy>
+        <width>1240</width>
+        <height>30</height>
+        <font>font24_title</font>
+        <aligny>center</aligny>
+        <textcolor>black</textcolor>
+        <align>left</align>
+        <info>Container(125).ListItem.Label</info>
+      </control>
+      <control type="textbox" id="130">
+        <description>Note Content</description>
+        <posx>10</posx>
+        <posy>42</posy>
+        <width>1222</width>
+        <height>240</height>
+        <info>Container(125).ListItem.Property(content)</info>
+        <visible>true</visible>
+        <font>font13</font>
+        <textcolor>FF000000</textcolor>
+        <pulseonselect></pulseonselect>
+        <pagecontrol>131</pagecontrol>
+        <!-- autoscroll delay="3000" time="1000" repeat="10000">!Control.HasFocus(131)</autoscroll --> 
+      </control>
+      <control type="label" id="132">
+        <description>Note Content</description>
+        <posx>10</posx>
+        <posy>42</posy>
+        <width>1222</width>
+        <height>240</height>
+        <align>center</align>
+        <aligny>center</aligny>
+        <label>$LOCALIZE[SCRIPT3022]</label>
+        <visible>true</visible>
+        <font>font30_title</font>
+        <textcolor>FF000000</textcolor>
+        <visible>StringCompare(Container(125).ListItem.Property(content),) + Control.HasFocus(125)</visible>
+      </control>
+      <control type="group">
+        <posx>1242</posx>
+        <posy>42</posy>
+        <control type="scrollbar" id="131">
+          <description>scroll bar indicator for lists</description>
+          <posx>0</posx>
+          <posy>0</posy>
+          <onleft>125</onleft>
+          <onright>120</onright>
+          <width>12</width>
+          <height>240</height>
+          <texturesliderbackground border="6">script-evernote-list-focus.png</texturesliderbackground>
+          <texturesliderbar border="6">script-evernote-list-focus.png</texturesliderbar>
+          <texturesliderbarfocus border="6">script-evernote-list-focus.png</texturesliderbarfocus>
+          <textureslidernib>-</textureslidernib>
+          <textureslidernibfocus>-</textureslidernibfocus>
+          <orientation>vertical</orientation>
+          <showonepage>true</showonepage>
+          <visible allowhiddenfocus="true">Control.HasFocus(131)</visible>
+        </control>
+      </control>
+      <control type="image">
+        <posx>0</posx>
+        <posy>0</posy>
+        <width>1260</width>
+        <height>290</height>
+        <colordiffuse>66FFFFFF</colordiffuse>
+        <texture>script-evernote-black-square.png</texture>
+        <visible>!Control.HasFocus(131)</visible>
       </control>
     </control>
   </controls>

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
-import sys, os, re, traceback, glob, time
+import sys, os, re, traceback, glob, time, threading, httplib
+from webviewer import htmltoxbmc #@UnresolvedImport
 
 #Evernote Imports
 import hashlib
@@ -41,6 +42,9 @@ ACTION_SHOW_GUI       = 18
 ACTION_PLAYER_PLAY    = 79
 ACTION_MOUSE_LEFT_CLICK = 100
 ACTION_CONTEXT_MENU   = 117
+
+#Actually it's show codec info but I'm using in a threaded callback
+ACTION_RUN_IN_MAIN = 27
 
 THEME = 'Default'
 
@@ -351,6 +355,7 @@ class XNoteSession():
 		self.window = window
 		self._pdialog = None
 		self.currentNotebookGuid = None
+		self.updatingNote = None
 		
 		self.CACHE_PATH = os.path.join(xbmc.translatePath(__addon__.getAddonInfo('profile')),'cache')
 		if not os.path.exists(self.CACHE_PATH): os.makedirs(self.CACHE_PATH)
@@ -501,7 +506,7 @@ class XNoteSession():
 		user,password = self.getUserPass(force=True)
 		if not user: return
 		self.changeUser(user)
-		self.notify('Created New User: %s' % user)
+		self.notify(__lang__(30100) % user)
 	
 	def changeUser(self,user=None):
 		if not user: user = self.chooseUser()
@@ -524,13 +529,13 @@ class XNoteSession():
 
 		options.append('')
 		optionIDs.append('')
-		
-		if self.window.getFocusId() == 125:
+		focus = self.window.getFocusId()
+		if focus == 125 or focus == 131:
 			options.append(__lang__(30026))
 			options.append(__lang__(30017))
 			optionIDs.append('movenote')
 			optionIDs.append('deletenote')
-		elif self.window.getFocusId() == 120:
+		elif focus == 120:
 			options.append(__lang__(30018))
 			optionIDs.append('deletenotebook')
 			
@@ -583,7 +588,7 @@ class XNoteSession():
 		note = self.esession.createNote(self.getXBMCLog(),title=__lang__(30063),notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify('Created Log Note: %s' % note.title)
+		self.notify(__lang__(30101) % note.title)
 		
 	def createScreenshotNote(self):
 		nb = None
@@ -593,7 +598,7 @@ class XNoteSession():
 		note = self.esession.createNote(title=__lang__(30060) % os.path.basename(fname),image_files=[fname],notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify('Created Screenshot Note: %s' % note.title)
+		self.notify(__lang__(30102) % note.title)
 	
 	def createWriteNote(self):
 		nb = None
@@ -604,7 +609,7 @@ class XNoteSession():
 		note = self.esession.createNote(text,title=title,notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify('Created Note: %s' % note.title)
+		self.notify(__lang__(30103) % note.title)
 	
 	def createNotebook(self):
 		title = doKeyboard(__lang__(30023))
@@ -615,8 +620,8 @@ class XNoteSession():
 					self.showError(__lang__(30050))
 					return
 		nb = self.esession.createNotebook(title)
-		self.showNotebooks()
-		self.notify('Created Notebook: %s' % nb.name)
+		self.showNotebooks(force=True)
+		self.notify(__lang__(30104) % nb.name)
 		
 	def deleteNote(self):
 		item = self.getFocusedItem(125)
@@ -626,7 +631,7 @@ class XNoteSession():
 			self.esession.deleteNote(guid)
 			self.updateNotebookCounts()
 			self.showNotes()
-			self.notify('Deleted (To Trash) Note: %s' % title)
+			self.notify(__lang__(30105) % title)
 			
 	def deleteNotebook(self):
 		item = self.getFocusedItem(120)
@@ -635,7 +640,7 @@ class XNoteSession():
 		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), name):
 			self.esession.deleteNotebook(guid)
 			self.showNotebooks()
-			self.notify('Deleted Notebook: %s' % name)
+			self.notify(__lang__(30106) % name)
 			#TODO: Perhaps clear the note list, when this is working we can check to see if we can still access the notes
 		
 	def moveNote(self):
@@ -649,7 +654,7 @@ class XNoteSession():
 		self.esession.moveNote(guid, nbguid)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify('Moved Note: %s' % title)
+		self.notify(__lang__(30107) % title)
 		
 	def chooseNotebook(self):
 		nblist = []
@@ -665,10 +670,10 @@ class XNoteSession():
 		
 		return guids[idx]
 		
-	def showNotebooks(self):
+	def showNotebooks(self,force=False):
 		self.startProgress(text=__lang__(30031))
 		try:
-			notebooks = self.esession.getNotebooks()
+			notebooks = self.esession.getNotebooks(ignoreCache=force)
 			ncc = self.esession.getNotebookCounts()
 			items = []
 			for nb in notebooks:
@@ -739,6 +744,7 @@ class XNoteSession():
 				item.setThumbnailImage(path)
 				item.setLabel(note.title)
 				item.setProperty('guid',note.guid)
+				item.setProperty('content','')
 				items.append(item)
 				ct+=1
 			items.reverse()
@@ -772,10 +778,7 @@ class XNoteSession():
 	def viewNote(self,note):
 		self.startProgress(text=__lang__(30033))
 		try:
-			contents = note.content
-			contents = re.sub('<!DOCTYPE.*?>','',contents)
-			contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/>',r'<img src="\1" />',contents)
-			contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/>',r'<img src="\1" />',contents)
+			contents = self.prepareContentForWebviewer(note.content)
 			noteFile = os.path.join(self.CACHE_PATH,'notecontents.html')
 			nf = open(noteFile,'w')
 			nf.write(contents)
@@ -805,21 +808,235 @@ class XNoteSession():
 		from webviewer import webviewer #@UnresolvedImport
 		url,html = webviewer.getWebResult(url) #@UnusedVariable
 		
+	def prepareContentForWebviewer(self,contents):
+		contents = re.sub('<!DOCTYPE.*?>','',contents)
+		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/>',r'<img src="\1" />',contents)
+		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/>',r'<img src="\1" />',contents)
+		return contents
+	
 	def notify(self,message,header='X-NOTE'):
 		mtime=2000
 		image=''
 		xbmc.executebuiltin('Notification(%s,%s,%s,%s)' % (header,message,mtime,image))
 		
+	def findNoteItem(self,guid):
+		wlist = self.window.getControl(125)
+		for idx in range(0,wlist.size()):
+			item = wlist.getListItem(idx)
+			iguid = item.getProperty('guid')
+			if iguid == guid: return item
+		return None
 	
-class BaseWindow(xbmcgui.WindowXML):
+	def noteChanged(self):
+		item = self.getFocusedItem(125)
+		content = item.getProperty('content')
+		if content:
+			LOG('Note Changed - Cached Content')
+			return
+		else:
+			LOG('Note Changed')
+		t = self.window.getThread(self.getNote,finishedCallback=self.updateNote,wait=True)
+		t.setArgs(callback=t.progressCallback,donecallback=t.finishedCallback)
+		t.start()
+		
+	def getNote(self,callback=None,donecallback=None):
+		item = self.getFocusedItem(125)
+		if not item: return
+		guid = item.getProperty('guid')
+		if self.updatingNote == guid: return
+		self.updatingNote = guid
+		time.sleep(0.5)
+		if self.updatingNote and not self.updatingNote == guid:
+			LOG('getNote() interrupted by another call')
+			return
+		self.updatingNote = None
+		LOG('Updating Note: %s' % guid)
+		note = None
+		try:
+			note = self.esession.getNoteByGuid(guid)
+		except httplib.ResponseNotReady:
+			LOG('getNote() - Failed: ResponseNotReady - Retrying...')
+			return
+		if not note:
+			time.sleep(0.5)
+			try:
+				note = self.esession.getNoteByGuid(guid)
+			except httplib.ResponseNotReady:
+				LOG('getNote() - Failed: ResponseNotReady - Giving Up')
+				return
+		donecallback(note)
+	
+	def updateNote(self,note):
+		item = self.getFocusedItem(125)
+		guid = item.getProperty('guid')
+		if not note.guid == guid:
+			LOG('updateNote(): Wrong Note - finding correct item...')
+			item = self.findNoteItem(note.guid)
+			if not item:
+				LOG('updateNote(): item not found - abort')
+				return
+		LOG('Updated Changed Note: %s' % guid)
+		content = self.prepareContentForWebviewer(note.content)
+		content, title = HTMLCONVERTER.htmlToDisplay(content)
+		item.setProperty('content',content)
+		
+######################################################################################
+# Base Window Classes
+######################################################################################
+class StoppableThread(threading.Thread):
+	def __init__(self,group=None, target=None, name=None, args=(), kwargs={}):
+		self._stop = threading.Event()
+		threading.Thread.__init__(self,group=group, target=target, name=name, args=args, kwargs=kwargs)
+		
+	def stop(self):
+		self._stop.set()
+		
+	def stopped(self):
+		return self._stop.isSet()
+		
+class StoppableCallbackThread(StoppableThread):
+	def __init__(self,target=None, name=None):
+		self._target = target
+		self._stop = threading.Event()
+		self._finishedHelper = None
+		self._finishedCallback = None
+		self._progressHelper = None
+		self._progressCallback = None
+		self.wait = None
+		StoppableThread.__init__(self,name=name)
+		
+	def setArgs(self,*args,**kwargs):
+		self.args = args
+		self.kwargs = kwargs
+		
+	def run(self):
+		if self.wait:
+			self.wait.join(0.5)
+			time.sleep(0.5)
+		self._target(*self.args,**self.kwargs)
+		
+	def setFinishedCallback(self,helper,callback):
+		self._finishedHelper = helper
+		self._finishedCallback = callback
+	
+	def setProgressCallback(self,helper,callback):
+		self._progressHelper = helper
+		self._progressCallback = callback
+		
+	def stop(self):
+		self._stop.set()
+		
+	def stopped(self):
+		return self._stop.isSet()
+		
+	def progressCallback(self,*args,**kwargs):
+		if self.stopped(): return False
+		if self._progressCallback: self._progressHelper(self._progressCallback,*args,**kwargs)
+		return True
+		
+	def finishedCallback(self,*args,**kwargs):
+		if self.stopped(): return False
+		if self._finishedCallback: self._finishedHelper(self._finishedCallback,*args,**kwargs)
+		return True
+
+class ThreadWindow:
+	def __init__(self):
+		self._currentThread = None
+		self._stopControl = None
+		self._startCommand = None
+		self._progressCommand = None
+		self._endCommand = None
+		self._isMain = False
+		self._resetFunction()
+			
+	def setAsMain(self):
+		self._isMain = True
+		
+	def setStopControl(self,control):
+		self._stopControl = control
+		control.setVisible(False)
+		
+	def setProgressCommands(self,start=None,progress=None,end=None):
+		self._startCommand = start
+		self._progressCommand = progress
+		self._endCommand = end
+		
+	def onAction(self,action):
+		if action == ACTION_RUN_IN_MAIN:
+			if self._function:
+				self._function(*self._functionArgs,**self._functionKwargs)
+				self._resetFunction()
+				return True
+		elif action == ACTION_PREVIOUS_MENU:
+			if self._currentThread and self._currentThread.isAlive():
+				self._currentThread.stop()
+				if self._endCommand: self._endCommand()
+				if self._stopControl: self._stopControl.setVisible(False)
+			if self._isMain and len(threading.enumerate()) > 1:
+				d = xbmcgui.DialogProgress()
+				d.create(__lang__(30220),__lang__(30221))
+				d.update(0)
+				self.stopThreads()
+				if d.iscanceled():
+					d.close()
+					return True
+				d.close()
+			return False
+		return False
+	
+	def stopThreads(self):
+		for t in threading.enumerate():
+			if isinstance(t,StoppableThread): t.stop()
+		for t in threading.enumerate():
+			if t != threading.currentThread(): t.join()
+			
+	def _resetFunction(self):
+		self._function = None
+		self._functionArgs = []
+		self._functionKwargs = {}
+		
+	def runInMain(self,function,*args,**kwargs):
+		self._function = function
+		self._functionArgs = args
+		self._functionKwargs = kwargs
+		xbmc.executebuiltin('Action(codecinfo)')
+		
+	def endInMain(self,function,*args,**kwargs):
+		if self._endCommand: self._endCommand()
+		if self._stopControl: self._stopControl.setVisible(False)
+		self.runInMain(function,*args,**kwargs)
+		
+	def getThread(self,function,finishedCallback=None,progressCallback=None,wait=False):
+		if self._currentThread and not wait: self._currentThread.stop()
+		if not progressCallback: progressCallback = self._progressCommand
+		t = StoppableCallbackThread(target=function)
+		t.setFinishedCallback(self.endInMain,finishedCallback)
+		t.setProgressCallback(self.runInMain,progressCallback)
+		if wait: t.wait = self._currentThread
+		self._currentThread = t
+		if self._stopControl: self._stopControl.setVisible(True)
+		if self._startCommand: self._startCommand()
+		return t
+		
+	def stopThread(self):
+		if self._stopControl: self._stopControl.setVisible(False)
+		if self._currentThread:
+			self._currentThread.stop()
+			self._currentThread = None
+			if self._endCommand: self._endCommand()
+			
+class BaseWindow(xbmcgui.WindowXML,ThreadWindow):
 	def __init__( self, *args, **kwargs):
 		xbmcgui.WindowXML.__init__( self, *args, **kwargs )
+		ThreadWindow.__init__(self)
 		
 	def onFocus( self, controlId ):
 		self.controlId = controlId
 		
 	def onAction(self,action):
-		#if action == ACTION_PARENT_DIR or
+		if action == ACTION_PARENT_DIR:
+			action = ACTION_PREVIOUS_MENU
+		if ThreadWindow.onAction(self,action): return True
 		if action == ACTION_PREVIOUS_MENU:
 			try:
 				self.onClose()
@@ -838,6 +1055,8 @@ class MainWindow(BaseWindow):
 	def __init__( self, *args, **kwargs):
 		self.session = None
 		BaseWindow.__init__( self, *args, **kwargs )
+		self.lastFocus = 0
+		self.lastItem = -1
 		
 	def onInit(self):
 		if not self.session:
@@ -850,14 +1069,18 @@ class MainWindow(BaseWindow):
 	def onClick( self, controlID ):
 		if controlID == 120:
 			self.session.notebookSelected()
-		if controlID == 125:
+		if controlID == 125 or controlID == 131:
 			self.session.noteSelected()
 			
 	def onAction(self,action):
-		if BaseWindow.onAction(self, action): return
 		if action == ACTION_CONTEXT_MENU:
 			self.session.doContextMenu()
-			
+		if BaseWindow.onAction(self, action): return
+		focus = self.getFocusId()
+		if self.lastFocus != focus:
+			if focus == 125:
+				self.session.noteChanged()
+				
 	def onClose(self):
 		self.session.cleanCache()
 
@@ -867,4 +1090,5 @@ def openWindow(window_name,session=None,**kwargs):
 	w.doModal()			
 	del w
 		
+HTMLCONVERTER = htmltoxbmc.HTMLConverter()
 openWindow('main')
