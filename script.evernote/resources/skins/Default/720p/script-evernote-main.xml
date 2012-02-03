@@ -42,10 +42,26 @@
         <pagecontrol>121</pagecontrol>
         <scrolltime>200</scrolltime>
         <itemlayout height="38">
-          <control type="label">
+          <control type="image">
             <posx>5</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook.png</texture>
+            <visible>StringCompare(ListItem.Property(published),notpublished)</visible>
+          </control>
+          <control type="image">
+            <posx>5</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook-public.png</texture>
+            <visible>StringCompare(ListItem.Property(published),published)</visible>
+          </control>
+          <control type="label">
+            <posx>42</posx>
             <posy>0</posy>
-            <width>388</width>
+            <width>351</width>
             <height>38</height>
             <font>font18</font>
             <aligny>center</aligny>
@@ -63,11 +79,26 @@
             <height>38</height>
             <texture border="10">script-evernote-list-focus.png</texture>
           </control>
-       
-          <control type="label">
+          <control type="image">
             <posx>5</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook.png</texture>
+            <visible>StringCompare(ListItem.Property(published),notpublished)</visible>
+          </control>
+          <control type="image">
+            <posx>5</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook-public.png</texture>
+            <visible>StringCompare(ListItem.Property(published),published)</visible>
+          </control>
+          <control type="label">
+            <posx>42</posx>
             <posy>0</posy>
-            <width>388</width>
+            <width>351</width>
             <height>38</height>
             <font>font18</font>
             <aligny>center</aligny>

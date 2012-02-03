@@ -152,12 +152,8 @@ class EvernoteSession():
 		
 	def getNotebooks(self,ignoreCache=False):
 		if self.notebooks and not ignoreCache: return self.notebooks
-		try:
-			notebooks = self.noteStore.listNotebooks(self.authToken)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('getNotebooks()','noteStore.listNotebooks',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('getNotebooks()','noteStore.listNotebooks',e)
+		
+		notebooks = self.authCallWrapper(self.noteStore.listNotebooks,'getNotebooks()','noteStore.listNotebooks')
 		
 		self.notebooks = notebooks
 		LOG("Found %s notebooks:" % len(notebooks))
@@ -168,13 +164,7 @@ class EvernoteSession():
 		return notebooks
 
 	def getNotebookCounts(self):
-		try:
-			ncc = self.noteStore.findNoteCounts(self.authToken,NoteStore.NoteFilter(),False)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('getNotebookCounts()','noteStore.findNoteCounts',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('getNotebookCounts()','noteStore.findNoteCounts',e)
-		
+		ncc = self.authCallWrapper(self.noteStore.findNoteCounts,'getNotebookCounts()','noteStore.findNoteCounts',NoteStore.NoteFilter(),False)
 		return ncc
 		
 	def getNotebookByGuid(self,guid):
@@ -189,13 +179,21 @@ class EvernoteSession():
 			if nb.name == notebook_name: return nb
 		return None
 	
+	def publishNotebook(self,notebook,publish=True,desc='',uri=None):
+		if type(notebook) == type(''):
+			notebook = self.getNotebookByGuid(notebook)
+		if notebook.published == publish: return
+		notebook.published = publish
+		if publish: 
+			pub = Types.Publishing()
+			if not uri: uri = re.sub('\W','',notebook.name)
+			pub.uri = uri
+			pub.publicDescription = desc
+			notebook.publishing = pub
+		self.authCallWrapper(self.noteStore.updateNotebook,'publishNotebook()','noteStore.updateNotebook', notebook)
+		
 	def getNoteByGuid(self,guid):
-		try:
-			note = self.noteStore.getNote(self.authToken, guid, True, False, False, False)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('getNoteByGuid()','noteStore.getNote',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('getNoteByGuid()','noteStore.getNote',e)
+		note = self.authCallWrapper(self.noteStore.getNote,'getNoteByGuid()','noteStore.getNote', guid, True, False, False, False)
 		return note
 	
 	def getNoteList(self,guid=None,notebook=None):
@@ -205,12 +203,7 @@ class EvernoteSession():
 		LOG('Getting notes for notebook - guid: %s' % guid)
 		nf = NoteStore.NoteFilter()
 		nf.notebookGuid = guid
-		try:
-			notes = self.noteStore.findNotes(self.authToken,nf,0,999)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('getNoteList()','noteStore.findNotes',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('getNoteList()','noteStore.findNotes',e)
+		notes = self.authCallWrapper(self.noteStore.findNotes,'getNoteList()','noteStore.findNotes',nf,0,999)
 		return notes
 		
 	def prepareText(self,text):
@@ -218,13 +211,7 @@ class EvernoteSession():
 		
 	def deleteNote(self,guid):
 		if not type(guid) == type(''): guid = guid.guid
-		try:
-			self.noteStore.deleteNote(self.authToken, guid)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('deleteNote()','noteStore.deleteNote',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('deleteNote()','noteStore.deleteNote',e)
-		
+		self.authCallWrapper(self.noteStore.deleteNote,'deleteNote()','noteStore.deleteNote', guid)
 		LOG("Successfully deleted note with guid: %s" % (guid))
 		
 	def createNote(self,text='',image_files=[],notebook=None,title=''):
@@ -277,65 +264,59 @@ class EvernoteSession():
 			note.resources = resources
 			
 		note.content += '</en-note>'
-		try:
-			createdNote = self.noteStore.createNote(self.authToken, note)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('createNote()','noteStore.createNote',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('createNote()','noteStore.createNote',e)
+		createdNote = self.authCallWrapper(	self.noteStore.createNote,
+											'createNote()',
+											'noteStore.createNote',
+											note)
 		
 		LOG("Successfully created a new note with GUID: %s" % createdNote.guid)
 		return createdNote
 	
 	def moveNote(self,guid,nbguid):
-		try:
-			note = self.noteStore.getNote(	self.authToken,guid,False,False,False,False)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('moveNote()','noteStore.getNote',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('moveNote()','noteStore.getNote',e)
+		note = self.authCallWrapper(self.noteStore.getNote,'moveNote()','noteStore.getNote',guid,False,False,False,False)
 		
 		note.notebookGuid = nbguid
 		
-		try:
-			self.noteStore.updateNote(self.authToken, note)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('moveNote()','noteStore.updateNote',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('moveNote()','noteStore.updateNote',e)
+		self.authCallWrapper(self.noteStore.updateNote,'moveNote()','noteStore.updateNote', note)
+
 		return note
 						
 	def deleteNotebook(self,guid=None,notebook=None):
 		if not guid: guid = notebook.guid
-		try:
-			self.noteStore.expungeNotebook(self.authToken, guid)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('deleteNotebook()','noteStore.expungeNotebook',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('deleteNotebook()','noteStore.expungeNotebook',e)
+		self.authCallWrapper(self.noteStore.expungeNotebook,'deleteNotebook()','noteStore.expungeNotebook', guid)
 		
 		LOG("Successfully deleted notebook with guid: %s" % (guid))
 		
 	def createNotebook(self,name,default=False):
 		notebook = Types.Notebook()
 		notebook.name = name
-		try:
-			createdNotebook = self.noteStore.createNotebook(self.authToken, notebook)
-		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('createNotebook()','noteStore.createNotebook',e)
-		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('createNotebook()','noteStore.createNotebook',e)
+		createdNotebook = self.authCallWrapper(self.noteStore.createNotebook,'createNotebook()','noteStore.createNotebook', notebook)
 		
 		LOG("Successfully created a new notebook with GUID: %s" % createdNotebook.guid)
 		return createdNotebook
 		
 	def getResourceData(self,guid):
+		return self.authCallWrapper(self.noteStore.getResourceData,'getResourceData()','noteStore.getResourceData', guid)
+		
+	def authCallWrapper(self,function,func_name,meth_name,*args,**kwargs):
 		try:
-			return self.noteStore.getResourceData(self.authToken, guid)
+			return function(self.authToken,*args,**kwargs)
 		except Errors.EDAMUserException as e:
-			raise EvernoteSessionError('getResourceData()','noteStore.getResourceData',e)
+			if e.errorCode != Errors.EDAMErrorCode.AUTH_EXPIRED:
+				raise EvernoteSessionError(func_name,meth_name,e)
 		except Errors.EDAMSystemException as e:
-			raise EvernoteSessionError('getResourceData()','noteStore.getResourceData',e)
+			raise EvernoteSessionError(func_name,meth_name,e)
+		
+		#If we get here, auth was expired. Restart session and try again
+		LOG('API: Auth Expired - Restarting Session')
+		self.startSession()
+		LOG('API: Retrying Original Call...')
+		try:
+			return function(self.authToken,*args,**kwargs)
+		except Errors.EDAMUserException as e:
+			raise EvernoteSessionError(func_name,meth_name,e)
+		except Errors.EDAMSystemException as e:
+			raise EvernoteSessionError(func_name,meth_name,e)
 
 def doKeyboard(prompt,default='',hidden=False):
 	keyboard = xbmc.Keyboard(default,prompt)
@@ -538,6 +519,13 @@ class XNoteSession():
 		elif focus == 120:
 			options.append(__lang__(30018))
 			optionIDs.append('deletenotebook')
+			item = self.getFocusedItem(120)
+			if item.getProperty('published') == 'notpublished':
+				options.append(__lang__(30035))
+			else:
+				options.append(__lang__(30036))
+			optionIDs.append('publishnotebook')
+				
 			
 		idx = xbmcgui.Dialog().select(__lang__(30010),options)
 		if idx < 0:
@@ -569,7 +557,9 @@ class XNoteSession():
 				self.deleteNote()
 			elif option == 'deletenotebook':
 				err_msg = __lang__(30052)
-				self.deleteNotebook()
+			elif option == 'publishnotebook':
+				err_msg = __lang__(30056)
+				self.toggleNotebookPublished()
 		except EvernoteSessionError as e:
 			self.error(e,message=err_msg)
 		except:
@@ -633,6 +623,42 @@ class XNoteSession():
 			self.showNotes()
 			self.notify(__lang__(30105) % title)
 			
+	def toggleNotebookPublished(self):
+		item = self.getFocusedItem(120)
+		guid = item.getProperty('guid')
+		published = item.getProperty('published')
+		name = item.getProperty('name')
+		if published == 'published':
+			self.esession.publishNotebook(guid,False)
+		else:
+			uri=re.sub('\W','',name)
+			desc=''
+			nb = self.esession.getNotebookByGuid(guid)
+			if nb.publishing:
+				uri = nb.publishing.uri or uri
+				desc = nb.publishing.publicDescription or desc
+			uri = doKeyboard(__lang__(30064),uri)
+			desc = doKeyboard(__lang__(30065),desc)
+			try:
+				self.esession.publishNotebook(guid,True,desc,uri)
+			except EvernoteSessionError as e:
+				if e.parameter == 'Publishing.uri':
+					if e.message == 'DATA_CONFLICT':
+						self.showError(__lang__(30066))
+					elif e.message == 'BAD_DATA_FORMAT' or e.message == 'DATA_REQUIRED':
+						self.showError(__lang__(30067))
+					else:
+						raise
+					return
+				else:
+					raise
+			
+		self.showNotebooks(force=True)
+		if published == 'published':
+			self.notify(__lang__(30109) % name)
+		else:
+			self.notify(__lang__(30108) % name)
+		
 	def deleteNotebook(self):
 		item = self.getFocusedItem(120)
 		guid = item.getProperty('guid')
@@ -685,6 +711,8 @@ class XNoteSession():
 				item.setLabel(nb.name + ct_disp)
 				item.setProperty('guid',nb.guid)
 				item.setProperty('name',nb.name)
+				pub = nb.published and 'published' or 'notpublished'
+				item.setProperty('published',pub)
 				items.append(item)
 			wlist = self.window.getControl(120)
 			wlist.reset()

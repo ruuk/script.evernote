@@ -32,6 +32,9 @@
     <string id="30033">Loading Note...</string>
     <string id="30034">Loading Resources...</string>
     
+    <string id="30035">Publish Notebook</string>
+    <string id="30036">Un-Publish Notebook</string>
+    
     <string id="30040">ERROR</string>
     <string id="30041">Error Starting Session</string>
     <string id="30042">Failed To Authenticate User</string>
@@ -46,11 +49,16 @@
     <string id="30051">Error Deleting Note</string>
     <string id="30052">Error Deleting Notebook</string>
     <string id="30055">Error Moving Note</string>
+    <string id="30056">Error (Un)Publishing Notebook</string>
     
     <string id="30060">XBMC Screenshot: %s</string>
     <string id="30061">Enter Username</string>
     <string id="30062">Enter Password for %s</string>
     <string id="30063">XBMC Log</string>
+    <string id="30064">Enter URI</string>
+    <string id="30065">Enter Description</string>
+    <string id="30066">URI Already In Use</string>
+    <string id="30067">Bad URI</string>
     
     <string id="30100">Created New User: %s</string>
     <string id="30101">Created Log Note: %s</string>
@@ -60,6 +68,8 @@
     <string id="30105">Deleted (To Trash) Note: %s</string>
     <string id="30106">Deleted Notebook: %s</string>
     <string id="30107">Moved Note: %s</string>
+    <string id="30108">Published Notebook: %s</string>
+    <string id="30109">Un-Published Notebook: %s</string>
     
     <string id="30220">Waiting...</string>
     <string id="30221">Waiting for thread to stop...</string>
