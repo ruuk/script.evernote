@@ -98,8 +98,8 @@ class EvernoteSession():
 		
 		return username,password
 		
-	def setUserPass(self,user,password):
-		self.user = user
+	def setUserPass(self,username,password):
+		self.username = username
 		self.password = password
 		
 	def startSession(self,authResult=None):
@@ -116,7 +116,7 @@ class EvernoteSession():
 		
 		# Authenticate the user
 		if not authResult:
-			authResult = self.authenticate(self.user, self.password)
+			authResult = self.authenticate(self.username, self.password)
 		
 		self.user = authResult.user
 		self.authToken = authResult.authenticationToken
@@ -331,6 +331,13 @@ def obfuscate(text):
 def deObfuscate(coded):
 	return binascii.unhexlify(coded).decode('base64')
 
+def abbreviateURL(url):
+		pre_len = 45
+		base = '/' + os.path.basename(url)
+		pre_len -= len(base)
+		pre = os.path.dirname(url)[:-1][:pre_len] + '...'
+		return pre + base
+	
 class XNoteSession():
 	def __init__(self,window=None):
 		self.window = window
@@ -574,7 +581,9 @@ class XNoteSession():
 	
 	def createXBMCLogNote(self):
 		nb = None
-		if __addon__.getSetting('choose_notebook') == 'true': nb = self.chooseNotebook()
+		if __addon__.getSetting('choose_notebook') == 'true':
+			nb = self.chooseNotebook()
+			if nb == None: return
 		note = self.esession.createNote(self.getXBMCLog(),title=__lang__(30063),notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
@@ -582,7 +591,9 @@ class XNoteSession():
 		
 	def createScreenshotNote(self):
 		nb = None
-		if __addon__.getSetting('choose_notebook') == 'true': nb = self.chooseNotebook()
+		if __addon__.getSetting('choose_notebook') == 'true':
+			nb = self.chooseNotebook()
+			if nb == None: return
 		fname = xbmcgui.Dialog().browse(1, __lang__(30022), 'files','.png|.jpg|.gif',True,False,xbmc.translatePath('special://screenshots/'))
 		if not fname: return
 		note = self.esession.createNote(title=__lang__(30060) % os.path.basename(fname),image_files=[fname],notebook=nb)
@@ -592,9 +603,13 @@ class XNoteSession():
 	
 	def createWriteNote(self):
 		nb = None
-		if __addon__.getSetting('choose_notebook') == 'true': nb = self.chooseNotebook()
+		if __addon__.getSetting('choose_notebook') == 'true':
+			nb = self.chooseNotebook()
+			if nb == None: return
 		title = doKeyboard(__lang__(30020))
+		if title == None: return
 		text = doKeyboard(__lang__(30021))
+		if text == None: return
 		if not text: return
 		note = self.esession.createNote(text,title=title,notebook=nb)
 		self.updateNotebookCounts()
@@ -623,6 +638,9 @@ class XNoteSession():
 			self.showNotes()
 			self.notify(__lang__(30105) % title)
 			
+	def cleanURI(self,uri):
+		return re.sub('[^\w_-]','',uri).lower()
+		
 	def toggleNotebookPublished(self):
 		item = self.getFocusedItem(120)
 		guid = item.getProperty('guid')
@@ -631,14 +649,19 @@ class XNoteSession():
 		if published == 'published':
 			self.esession.publishNotebook(guid,False)
 		else:
-			uri=re.sub('\W','',name)
+			uri=self.cleanURI(name)
 			desc=''
 			nb = self.esession.getNotebookByGuid(guid)
 			if nb.publishing:
 				uri = nb.publishing.uri or uri
 				desc = nb.publishing.publicDescription or desc
-			uri = doKeyboard(__lang__(30064),uri)
+			url = 'http://' + self.esession.evernoteHost + '/pub/' + self.esession.user.username + '/'
+			uri = doKeyboard(__lang__(30064) + url,uri)
+			if uri == None: return
+			uri = self.cleanURI(uri)
 			desc = doKeyboard(__lang__(30065),desc)
+			if desc == None: return
+			if not xbmcgui.Dialog().yesno('Confirm',abbreviateURL(url + uri), '"%s"' % desc,__lang__(30068)): return
 			try:
 				self.esession.publishNotebook(guid,True,desc,uri)
 			except EvernoteSessionError as e:

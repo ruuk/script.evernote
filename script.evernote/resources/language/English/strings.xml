@@ -55,10 +55,11 @@
     <string id="30061">Enter Username</string>
     <string id="30062">Enter Password for %s</string>
     <string id="30063">XBMC Log</string>
-    <string id="30064">Enter URI</string>
+    <string id="30064">URL: </string>
     <string id="30065">Enter Description</string>
-    <string id="30066">URI Already In Use</string>
-    <string id="30067">Bad URI</string>
+    <string id="30066">Public URL Already In Use</string>
+    <string id="30067">Bad Public URL</string>
+    <string id="30068">Continue To Publish?</string>
     
     <string id="30100">Created New User: %s</string>
     <string id="30101">Created Log Note: %s</string>
