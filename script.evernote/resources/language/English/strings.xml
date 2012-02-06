@@ -34,6 +34,7 @@
     
     <string id="30035">Publish Notebook</string>
     <string id="30036">Un-Publish Notebook</string>
+    <string id="30037">Show Map</string>
     
     <string id="30040">ERROR</string>
     <string id="30041">Error Starting Session</string>
@@ -50,6 +51,7 @@
     <string id="30052">Error Deleting Notebook</string>
     <string id="30055">Error Moving Note</string>
     <string id="30056">Error (Un)Publishing Notebook</string>
+    <string id="30057">Error Showing Map</string>
     
     <string id="30060">XBMC Screenshot: %s</string>
     <string id="30061">Enter Username</string>
@@ -60,6 +62,7 @@
     <string id="30066">Public URL Already In Use</string>
     <string id="30067">Bad Public URL</string>
     <string id="30068">Continue To Publish?</string>
+    <string id="30069">All Notes</string>
     
     <string id="30100">Created New User: %s</string>
     <string id="30101">Created Log Note: %s</string>

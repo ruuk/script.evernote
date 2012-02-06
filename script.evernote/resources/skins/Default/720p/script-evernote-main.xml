@@ -47,8 +47,16 @@
             <posy>3</posy>
             <width>32</width>
             <height>32</height>
+            <texture>script-evernote-stack.png</texture>
+            <visible>StringCompare(ListItem.Property(stack),stack)</visible>
+          </control>
+          <control type="image">
+            <posx>5</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
             <texture>script-evernote-notebook.png</texture>
-            <visible>StringCompare(ListItem.Property(published),notpublished)</visible>
+            <visible>StringCompare(ListItem.Property(published),notpublished) + StringCompare(ListItem.Property(stack),)</visible>
           </control>
           <control type="image">
             <posx>5</posx>
@@ -56,7 +64,23 @@
             <width>32</width>
             <height>32</height>
             <texture>script-evernote-notebook-public.png</texture>
-            <visible>StringCompare(ListItem.Property(published),published)</visible>
+            <visible>StringCompare(ListItem.Property(published),published) + StringCompare(ListItem.Property(stack),)</visible>
+          </control>
+          <control type="image">
+            <posx>15</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook.png</texture>
+            <visible>StringCompare(ListItem.Property(published),notpublished) + StringCompare(ListItem.Property(stack),stacked)</visible>
+          </control>
+          <control type="image">
+            <posx>15</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook-public.png</texture>
+            <visible>StringCompare(ListItem.Property(published),published) + StringCompare(ListItem.Property(stack),stacked)</visible>
           </control>
           <control type="label">
             <posx>42</posx>
@@ -69,9 +93,31 @@
             <selectedcolor>green</selectedcolor>
             <align>left</align>
             <info>ListItem.Label</info>
+            <visible>!StringCompare(ListItem.Property(stack),stacked)</visible>
+          </control>
+          <control type="label">
+            <posx>52</posx>
+            <posy>0</posy>
+            <width>341</width>
+            <height>38</height>
+            <font>font18</font>
+            <aligny>center</aligny>
+            <textcolor>black</textcolor>
+            <selectedcolor>green</selectedcolor>
+            <align>left</align>
+            <info>ListItem.Label</info>
+            <visible>StringCompare(ListItem.Property(stack),stacked)</visible>
           </control>
         </itemlayout>
         <focusedlayout height="38">
+          <control type="image">
+            <posx>5</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-stack.png</texture>
+            <visible>StringCompare(ListItem.Property(stack),stack)</visible>
+          </control>
           <control type="image">
             <posx>0</posx>
             <posy>0</posy>
@@ -85,7 +131,7 @@
             <width>32</width>
             <height>32</height>
             <texture>script-evernote-notebook.png</texture>
-            <visible>StringCompare(ListItem.Property(published),notpublished)</visible>
+            <visible>StringCompare(ListItem.Property(published),notpublished) + StringCompare(ListItem.Property(stack),)</visible>
           </control>
           <control type="image">
             <posx>5</posx>
@@ -93,7 +139,23 @@
             <width>32</width>
             <height>32</height>
             <texture>script-evernote-notebook-public.png</texture>
-            <visible>StringCompare(ListItem.Property(published),published)</visible>
+            <visible>StringCompare(ListItem.Property(published),published) + StringCompare(ListItem.Property(stack),)</visible>
+          </control>
+          <control type="image">
+            <posx>15</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook.png</texture>
+            <visible>StringCompare(ListItem.Property(published),notpublished) + StringCompare(ListItem.Property(stack),stacked)</visible>
+          </control>
+          <control type="image">
+            <posx>15</posx>
+            <posy>3</posy>
+            <width>32</width>
+            <height>32</height>
+            <texture>script-evernote-notebook-public.png</texture>
+            <visible>StringCompare(ListItem.Property(published),published) + StringCompare(ListItem.Property(stack),stacked)</visible>
           </control>
           <control type="label">
             <posx>42</posx>
@@ -106,6 +168,20 @@
             <selectedcolor>green</selectedcolor>
             <align>left</align>
             <info>ListItem.Label</info>
+            <visible>!StringCompare(ListItem.Property(stack),stacked)</visible>
+          </control>
+          <control type="label">
+            <posx>52</posx>
+            <posy>0</posy>
+            <width>341</width>
+            <height>38</height>
+            <font>font18</font>
+            <aligny>center</aligny>
+            <textcolor>black</textcolor>
+            <selectedcolor>green</selectedcolor>
+            <align>left</align>
+            <info>ListItem.Label</info>
+            <visible>StringCompare(ListItem.Property(stack),stacked)</visible>
           </control>
 		  
         </focusedlayout>

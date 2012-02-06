@@ -2,6 +2,7 @@
 import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
 import sys, os, re, traceback, glob, time, threading, httplib
 from webviewer import htmltoxbmc #@UnresolvedImport
+import maps
 
 #Evernote Imports
 import hashlib
@@ -196,13 +197,16 @@ class EvernoteSession():
 		note = self.authCallWrapper(self.noteStore.getNote,'getNoteByGuid()','noteStore.getNote', guid, True, False, False, False)
 		return note
 	
-	def getNoteList(self,guid=None,notebook=None):
-		if not guid:
-			if not notebook: return
-			guid = notebook.guid
-		LOG('Getting notes for notebook - guid: %s' % guid)
+	def getNoteList(self,guid=None,search=None):
+		if guid and not type(guid) == type(''): guid = guid.guid
 		nf = NoteStore.NoteFilter()
-		nf.notebookGuid = guid
+		if guid:
+			if guid != 'all': nf.notebookGuid = guid
+			LOG('Getting notes for notebook - guid: %s' % guid)
+		else:
+			nf.words = search
+			LOG('Getting notes for search: %s' % search)
+	
 		notes = self.authCallWrapper(self.noteStore.findNotes,'getNoteList()','noteStore.findNotes',nf,0,999)
 		return notes
 		
@@ -342,11 +346,15 @@ class XNoteSession():
 	def __init__(self,window=None):
 		self.window = window
 		self._pdialog = None
-		self.currentNotebookGuid = None
+		self.currentNoteFilter = None
 		self.updatingNote = None
 		
 		self.CACHE_PATH = os.path.join(xbmc.translatePath(__addon__.getAddonInfo('profile')),'cache')
-		if not os.path.exists(self.CACHE_PATH): os.makedirs(self.CACHE_PATH)
+		maps_path = os.path.join(self.CACHE_PATH,'maps')
+		if not os.path.exists(maps_path): os.makedirs(maps_path)
+		
+		self.maps = maps.Maps(maps_path)
+		self.htmlconverter = htmltoxbmc.HTMLConverter()
 		
 		try:
 			self.esession = EvernoteSession()
@@ -425,6 +433,11 @@ class XNoteSession():
 		
 	def notebookSelected(self):
 		item = self.getFocusedItem(120)
+		if item.getProperty('stack') == 'stack':
+			stack = item.getLabel()
+			self.showNotes(search='stack:"%s"' % stack)
+			self.setNotebookTitleDisplay(stack)
+			return
 		guid = item.getProperty('guid')
 		self.setNotebookTitleDisplay(item.getProperty('name'))
 		self.showNotes(guid)
@@ -520,19 +533,23 @@ class XNoteSession():
 		focus = self.window.getFocusId()
 		if focus == 125 or focus == 131:
 			options.append(__lang__(30026))
-			options.append(__lang__(30017))
 			optionIDs.append('movenote')
+			options.append(__lang__(30017))
 			optionIDs.append('deletenote')
+			item = self.getFocusedItem(125)
+			if item.getProperty('haslocation') == 'yes':
+				options.append(__lang__(30037))
+				optionIDs.append('showmap')
 		elif focus == 120:
-			options.append(__lang__(30018))
-			optionIDs.append('deletenotebook')
+			#Disabled until we get permissions for the api key
+			#options.append(__lang__(30018))
+			#optionIDs.append('deletenotebook')
 			item = self.getFocusedItem(120)
 			if item.getProperty('published') == 'notpublished':
 				options.append(__lang__(30035))
 			else:
 				options.append(__lang__(30036))
 			optionIDs.append('publishnotebook')
-				
 			
 		idx = xbmcgui.Dialog().select(__lang__(30010),options)
 		if idx < 0:
@@ -564,14 +581,27 @@ class XNoteSession():
 				self.deleteNote()
 			elif option == 'deletenotebook':
 				err_msg = __lang__(30052)
+				self.deleteNotebook()
 			elif option == 'publishnotebook':
 				err_msg = __lang__(30056)
 				self.toggleNotebookPublished()
+			elif option == 'showmap':
+				err_msg = __lang__(30057)
+				self.showMap()
 		except EvernoteSessionError as e:
 			self.error(e,message=err_msg)
 		except:
 			self.error(message=err_msg)
 	
+	def showMap(self):
+		item = self.getFocusedItem(125)
+		guid = item.getProperty('guid')
+		note = self.esession.getNoteByGuid(guid)
+		lat = note.attributes.latitude
+		lon = note.attributes.longitude
+		self.maps.doMap({'lat':lat,'lon':lon})#,{'lat':lat,'lon':lon,'zoom':'19'})
+		
+		
 	def getXBMCLog(self):
 		log_file = xbmc.translatePath('special://temp/xbmc.log')
 		lf = open(log_file,'r')
@@ -723,20 +753,52 @@ class XNoteSession():
 		self.startProgress(text=__lang__(30031))
 		try:
 			notebooks = self.esession.getNotebooks(ignoreCache=force)
-			ncc = self.esession.getNotebookCounts()
-			items = []
+			stacks = {'@@-main-@@':[]}
 			for nb in notebooks:
-				count = ncc.notebookCounts.get(nb.guid)
-				ct_disp = ''
-				if count: ct_disp = ' (%s)' % count
-				item = xbmcgui.ListItem()
-				item.setThumbnailImage('')
-				item.setLabel(nb.name + ct_disp)
-				item.setProperty('guid',nb.guid)
-				item.setProperty('name',nb.name)
-				pub = nb.published and 'published' or 'notpublished'
-				item.setProperty('published',pub)
-				items.append(item)
+				stack = nb.stack
+				if stack:
+					if stack in stacks:
+						stacks[stack].append(nb)
+					else:
+						stacks[stack] = [nb]
+				else:
+					stacks['@@-main-@@'].append(nb)
+			ncc = self.esession.getNotebookCounts()
+			stack_names = stacks.keys()
+			midx = stack_names.index('@@-main-@@')
+			stack_names = stack_names[midx:] + stack_names[:midx]
+			items = []
+			item = xbmcgui.ListItem(label=__lang__(30069))
+			all_item = item
+			item.setProperty('guid','all')
+			item.setProperty('published','notpublished')
+			item.setProperty('name',__lang__(30069))
+			items.append(item)
+			total = 0
+			for stack in stack_names:
+				if stack == '@@-main-@@':
+					stacked = ''
+				else:
+					stacked = 'stacked'
+					item = xbmcgui.ListItem(label=stack)
+					item.setProperty('stack','stack')
+					items.append(item)
+				for nb in stacks[stack]:
+					count = ncc.notebookCounts.get(nb.guid)
+					ct_disp = ''
+					if count:
+						total += count
+						ct_disp = ' (%s)' % count
+					item = xbmcgui.ListItem()
+					item.setThumbnailImage('')
+					item.setLabel(nb.name + ct_disp)
+					item.setProperty('stack',stacked)
+					item.setProperty('guid',nb.guid)
+					item.setProperty('name',nb.name)
+					pub = nb.published and 'published' or 'notpublished'
+					item.setProperty('published',pub)
+					items.append(item)
+			all_item.setLabel(__lang__(30069) + ' (%s)' % total)
 			wlist = self.window.getControl(120)
 			wlist.reset()
 			wlist.addItems(items)
@@ -762,16 +824,17 @@ class XNoteSession():
 	def clearNotes(self):
 		self.setNotebookTitleDisplay()
 		self.window.getControl(125).reset()
-		self.currentNotebookGuid = None
+		self.currentNoteFilter = None
 		
-	def showNotes(self,nbguid=None):
-		if not nbguid: nbguid = self.currentNotebookGuid
-		if not nbguid: return
-		self.currentNotebookGuid = nbguid
+	def showNotes(self,nbguid=None,search=None):
+		if not nbguid and not search:
+			nbguid,search = self.currentNoteFilter
+		if not nbguid and not search: return
+		self.currentNoteFilter = (nbguid,search)
 		
 		self.startProgress(text=__lang__(30032))
 		try:
-			noteList = self.esession.getNoteList(nbguid)
+			noteList = self.esession.getNoteList(nbguid,search)
 			items = []
 			ct=0
 			tot= len(noteList.notes)
@@ -796,6 +859,7 @@ class XNoteSession():
 				item.setLabel(note.title)
 				item.setProperty('guid',note.guid)
 				item.setProperty('content','')
+				if note.attributes.latitude: item.setProperty('haslocation','yes')
 				items.append(item)
 				ct+=1
 			items.reverse()
@@ -907,13 +971,17 @@ class XNoteSession():
 			note = self.esession.getNoteByGuid(guid)
 		except httplib.ResponseNotReady:
 			LOG('getNote() - Failed: ResponseNotReady - Retrying...')
-			return
+		except AttributeError:
+			LOG('getNote() - Failed: HTTP Error - Retrying...')
 		if not note:
 			time.sleep(0.5)
 			try:
 				note = self.esession.getNoteByGuid(guid)
 			except httplib.ResponseNotReady:
 				LOG('getNote() - Failed: ResponseNotReady - Giving Up')
+				return
+			except AttributeError:
+				LOG('getNote() - Failed: HTTP Error - Giving Up')
 				return
 		donecallback(note)
 	
@@ -928,7 +996,7 @@ class XNoteSession():
 				return
 		LOG('Updated Changed Note: %s' % guid)
 		content = self.prepareContentForWebviewer(note.content)
-		content, title = HTMLCONVERTER.htmlToDisplay(content)
+		content, title = self.htmlconverter.htmlToDisplay(content)
 		item.setProperty('content',content)
 		
 ######################################################################################
@@ -1141,5 +1209,4 @@ def openWindow(window_name,session=None,**kwargs):
 	w.doModal()			
 	del w
 		
-HTMLCONVERTER = htmltoxbmc.HTMLConverter()
 openWindow('main')
