@@ -35,6 +35,7 @@
     <string id="30035">Publish Notebook</string>
     <string id="30036">Un-Publish Notebook</string>
     <string id="30037">Show Map</string>
+    <string id="30038">Add To Stack</string>
     
     <string id="30040">ERROR</string>
     <string id="30041">Error Starting Session</string>
@@ -52,6 +53,7 @@
     <string id="30055">Error Moving Note</string>
     <string id="30056">Error (Un)Publishing Notebook</string>
     <string id="30057">Error Showing Map</string>
+    <string id="30058">Error Adding Notebook To Stack</string>
     
     <string id="30060">XBMC Screenshot: %s</string>
     <string id="30061">Enter Username</string>
@@ -63,6 +65,9 @@
     <string id="30067">Bad Public URL</string>
     <string id="30068">Continue To Publish?</string>
     <string id="30069">All Notes</string>
+    <string id="30070">Enter Stack Name</string>
+    <string id="30071">+Add New Stack</string>
+    <string id="30072">Select Stack</string>
     
     <string id="30100">Created New User: %s</string>
     <string id="30101">Created Log Note: %s</string>
@@ -74,6 +79,7 @@
     <string id="30107">Moved Note: %s</string>
     <string id="30108">Published Notebook: %s</string>
     <string id="30109">Un-Published Notebook: %s</string>
+    <string id="30110">Notebook %s added to stack: %s</string>
     
     <string id="30220">Waiting...</string>
     <string id="30221">Waiting for thread to stop...</string>

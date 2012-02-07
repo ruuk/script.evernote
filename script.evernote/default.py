@@ -299,6 +299,15 @@ class EvernoteSession():
 		LOG("Successfully created a new notebook with GUID: %s" % createdNotebook.guid)
 		return createdNotebook
 		
+	def addNotebookToStack(self,notebook,stack=''):
+		if not stack:
+			LOG('addNotebookToStack() - No Stack')
+			return
+		if type(notebook) == type(''):
+			notebook = self.getNotebookByGuid(notebook)
+		notebook.stack = stack
+		return self.authCallWrapper(self.noteStore.updateNotebook,'addNotebookToStack()','noteStore.updateNotebook', notebook)
+		
 	def getResourceData(self,guid):
 		return self.authCallWrapper(self.noteStore.getResourceData,'getResourceData()','noteStore.getResourceData', guid)
 		
@@ -550,6 +559,8 @@ class XNoteSession():
 			else:
 				options.append(__lang__(30036))
 			optionIDs.append('publishnotebook')
+			options.append(__lang__(30038))
+			optionIDs.append('addtostack')
 			
 		idx = xbmcgui.Dialog().select(__lang__(30010),options)
 		if idx < 0:
@@ -588,6 +599,9 @@ class XNoteSession():
 			elif option == 'showmap':
 				err_msg = __lang__(30057)
 				self.showMap()
+			elif option == 'addtostack':
+				err_msg = __lang__(30058)
+				self.addNotebookToStack()
 		except EvernoteSessionError as e:
 			self.error(e,message=err_msg)
 		except:
@@ -657,6 +671,34 @@ class XNoteSession():
 		nb = self.esession.createNotebook(title)
 		self.showNotebooks(force=True)
 		self.notify(__lang__(30104) % nb.name)
+		
+	def getStackList(self):
+		stacks = []
+		for nb in self.esession.getNotebooks():
+			if nb.stack and not nb.stack in stacks: stacks.append(nb.stack)
+		return stacks
+	
+	def addNotebookToStack(self):
+		item = self.getFocusedItem(120)
+		guid = item.getProperty('guid')
+		nb = self.esession.getNotebookByGuid(guid)
+		if not nb:
+			LOG('addNotebookToStack() - No notebook')
+			return
+		stacks = self.getStackList()
+		stacks.append(__lang__(30071))
+		idx = xbmcgui.Dialog().select(__lang__(30072),stacks)
+		if idx < 0:
+			return
+		elif idx == len(stacks) - 1:
+			stack = doKeyboard(__lang__(30070))
+		else:
+			stack = stacks[idx]
+		if not stack: return
+		
+		self.esession.addNotebookToStack(nb, stack)
+		self.showNotebooks(force=True)
+		self.notify(__lang__(30110) % (nb.name,stack))
 		
 	def deleteNote(self):
 		item = self.getFocusedItem(125)
