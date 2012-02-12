@@ -4,6 +4,10 @@
     <string id="30001">Choose User On Start</string>
     <string id="30002">Save Passwords</string>
     <string id="30003">Note Creation: Ask For Target</string>
+    <string id="30004">Password Encryption Type</string>
+    <string id="30005">Encryption Key File (Optional - See Help)</string>
+    <string id="30006">Encryption Help</string>
+    <string id="30007">Passwords</string>
     
     <string id="30010">Options</string>
     <string id="30011">Create XBMC Log Note</string>
@@ -68,6 +72,7 @@
     <string id="30070">Enter Stack Name</string>
     <string id="30071">+Add New Stack</string>
     <string id="30072">Select Stack</string>
+    <string id="30073">Error reading encryption keyfile</string>
     
     <string id="30100">Created New User: %s</string>
     <string id="30101">Created Log Note: %s</string>

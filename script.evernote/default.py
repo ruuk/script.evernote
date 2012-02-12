@@ -3,10 +3,10 @@ import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
 import sys, os, re, traceback, glob, time, threading, httplib
 from webviewer import htmltoxbmc #@UnresolvedImport
 import maps
+from crypto import easypassword
 
 #Evernote Imports
-import hashlib
-import binascii
+import hashlib, binascii, getpass
 from xml.sax.saxutils import escape
 import thrift.protocol.TBinaryProtocol as TBinaryProtocol
 import thrift.transport.THttpClient as THttpClient
@@ -48,7 +48,7 @@ ACTION_CONTEXT_MENU   = 117
 ACTION_RUN_IN_MAIN = 27
 
 THEME = 'Default'
-
+ 
 import locale
 loc = locale.getdefaultlocale()
 print loc
@@ -338,12 +338,6 @@ def doKeyboard(prompt,default='',hidden=False):
 	if not keyboard.isConfirmed(): return None
 	return keyboard.getText()
 
-def obfuscate(text):
-	return binascii.hexlify(text.encode('base64'))
-	
-def deObfuscate(coded):
-	return binascii.unhexlify(coded).decode('base64')
-
 def abbreviateURL(url):
 		pre_len = 45
 		base = '/' + os.path.basename(url)
@@ -380,6 +374,9 @@ class XNoteSession():
 			return
 			
 		self.showNotebooks()
+	
+	def getSetting(self,sett,default=None):
+		return __addon__.getSetting(sett) or default
 	
 	def startSession(self,user=None):
 		user,password = self.getUserPass(user)
@@ -476,15 +473,65 @@ class XNoteSession():
 			__addon__.setSetting('login_pass_%s' % user,'')
 		password = __addon__.getSetting('login_pass_%s' % user)
 		if password:
-			password = deObfuscate(password)
+			method, keyfile, password = self.parsePassword(password)
+			password = easypassword.decryptPassword(self.getUserKey(user),password,method=method,keyfile=keyfile)
+			if not password: self.showError(__lang__(30073))
 		else:
 			password = doKeyboard(__lang__(30062) % user,hidden=True)
 		if not self.addUser(user,password): return None,None
 		__addon__.setSetting('last_user',user)
 		if __addon__.getSetting('save_passwords') == 'true':
-			__addon__.setSetting('login_pass_%s' % user,obfuscate(password))
+			method = self.getPasswordCryptoMethod()
+			__addon__.setSetting('login_pass_%s' % user,self.preSavePassword(easypassword.encryptPassword(self.getUserKey(user),password,method=method,keyfile=self.getSetting('crypto_key_file'))))
 		return user,password
 	
+	def getXBMCUser(self):
+		return xbmc.getInfoLabel('System.ProfileName')
+	
+	def getOSUser(self):
+		try:
+			return getpass.getuser()
+		except:
+			return ''
+		
+	def getUserKey(self,user):
+		return self.getXBMCUser() + self.getOSUser() + user
+	
+	def preSavePassword(self,password):
+		keyfile = self.getSetting('crypto_key_file', '')
+		if keyfile: keyfile = ':' + binascii.hexlify(keyfile)
+		if self.getSetting('crypto_type') == '0':
+			return 'a' + password + keyfile
+		elif self.getSetting('crypto_type') == '1':
+			return 'd' + password + keyfile
+		else:
+			return 'b' + password + keyfile
+		
+	def getPasswordCryptoMethod(self):
+		s_idx = self.getSetting('crypto_type','2')
+		if s_idx == '0':
+			return 'aes'
+		elif s_idx == '1':
+			return 'des'
+		else:
+			return 'both'
+		
+	def parsePassword(self,password):
+		type_c = password[0]
+		password = password[1:]
+		password_keyfile = password.split(':',1)
+		password = password_keyfile[0]
+		keyfile = None
+		if len(password_keyfile) == 2:
+			keyfile = binascii.unhexlify(password_keyfile[1])
+		if type_c.lower() == 'a':
+			type_c = 'aes'
+		elif type_c.lower() == 'd':
+			type_c = 'des'
+		else:
+			type_c = 'both'
+		return type_c,keyfile,password
+		
 	def addUser(self,user,password):
 		userlist = __addon__.getSetting('user_list').split('@,@')
 		if user in userlist: return True
@@ -1250,5 +1297,9 @@ def openWindow(window_name,session=None,**kwargs):
 	w = MainWindow(windowFile , xbmc.translatePath(__addon__.getAddonInfo('path')), THEME,session=session)
 	w.doModal()			
 	del w
-		
-openWindow('main')
+	
+if len(sys.argv) > 1:
+	if sys.argv[1] == 'crypto_help':
+		xbmcgui.Dialog().ok('Crypto Help','Passwords are encrypted using user data as the key.','Optional: include a keyfile whose contents must not','change and must be readable by XBMC.')
+else:
+	openWindow('main')
