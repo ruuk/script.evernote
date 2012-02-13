@@ -48,7 +48,7 @@ ACTION_CONTEXT_MENU   = 117
 ACTION_RUN_IN_MAIN = 27
 
 THEME = 'Default'
- 
+
 import locale
 loc = locale.getdefaultlocale()
 print loc

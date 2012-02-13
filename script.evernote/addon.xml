@@ -9,10 +9,14 @@
   </requires>
 
   <extension point="xbmc.python.script"
-            library="default.py">
+            library="lib/xnote.py">
     <provides>executable</provides>
     <provides>image</provides>
   </extension>
+  
+  <extension point="xbmc.python.module"
+            library="lib" />
+            
   <extension point="xbmc.addon.metadata">
     <summary lang="en">X-Note: Access Evernote</summary>
     <description>View Evernote notebooks and notes, create notes, save XBMC logs and screenshots to Evernote</description>
