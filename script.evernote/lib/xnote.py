@@ -218,7 +218,7 @@ class EvernoteSession():
 		self.authCallWrapper(self.noteStore.deleteNote,'deleteNote()','noteStore.deleteNote', guid)
 		LOG("Successfully deleted note with guid: %s" % (guid))
 		
-	def createNote(self,text='',image_files=[],notebook=None,title=''):
+	def createNote(self,text='',image_files=[],notebook=None,title='',html=''):
 		note = Types.Note()
 		if not title:
 			if text:
@@ -240,7 +240,7 @@ class EvernoteSession():
 		note.title = title
 		note.content = '<?xml version="1.0" encoding="UTF-8"?>'
 		note.content += '<!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">'
-		note.content += '<en-note>%s<br/>' % self.prepareText(text)
+		note.content += '<en-note>%s%s<br/>' % (self.prepareText(text),html)
 		
 		if image_files:
 			resources = []
@@ -339,11 +339,61 @@ def doKeyboard(prompt,default='',hidden=False):
 	return keyboard.getText()
 
 def abbreviateURL(url):
-		pre_len = 45
-		base = '/' + os.path.basename(url)
-		pre_len -= len(base)
-		pre = os.path.dirname(url)[:-1][:pre_len] + '...'
-		return pre + base
+	pre_len = 45
+	base = '/' + os.path.basename(url)
+	pre_len -= len(base)
+	pre = os.path.dirname(url)[:-1][:pre_len] + '...'
+	return pre + base
+	
+def getSetting(sett,default=None):
+	return __addon__.getSetting(sett) or default
+
+def getXBMCUser():
+		return xbmc.getInfoLabel('System.ProfileName')
+	
+def getOSUser():
+	try:
+		return getpass.getuser()
+	except:
+		return ''
+	
+def getUserKey(user):
+	return getXBMCUser() + getOSUser() + user
+
+def preSavePassword(password):
+	keyfile = getSetting('crypto_key_file', '')
+	if keyfile: keyfile = ':' + binascii.hexlify(keyfile)
+	if getSetting('crypto_type') == '0':
+		return 'a' + password + keyfile
+	elif getSetting('crypto_type') == '1':
+		return 'd' + password + keyfile
+	else:
+		return 'b' + password + keyfile
+	
+def getPasswordCryptoMethod():
+	s_idx = getSetting('crypto_type','2')
+	if s_idx == '0':
+		return 'aes'
+	elif s_idx == '1':
+		return 'des'
+	else:
+		return 'both'
+	
+def parsePassword(password):
+	type_c = password[0]
+	password = password[1:]
+	password_keyfile = password.split(':',1)
+	password = password_keyfile[0]
+	keyfile = None
+	if len(password_keyfile) == 2:
+		keyfile = binascii.unhexlify(password_keyfile[1])
+	if type_c.lower() == 'a':
+		type_c = 'aes'
+	elif type_c.lower() == 'd':
+		type_c = 'des'
+	else:
+		type_c = 'both'
+	return type_c,keyfile,password
 	
 class XNoteSession():
 	def __init__(self,window=None):
@@ -374,9 +424,6 @@ class XNoteSession():
 			return
 			
 		self.showNotebooks()
-	
-	def getSetting(self,sett,default=None):
-		return __addon__.getSetting(sett) or default
 	
 	def startSession(self,user=None):
 		user,password = self.getUserPass(user)
@@ -473,64 +520,17 @@ class XNoteSession():
 			__addon__.setSetting('login_pass_%s' % user,'')
 		password = __addon__.getSetting('login_pass_%s' % user)
 		if password:
-			method, keyfile, password = self.parsePassword(password)
-			password = easypassword.decryptPassword(self.getUserKey(user),password,method=method,keyfile=keyfile)
+			method, keyfile, password = parsePassword(password)
+			password = easypassword.decryptPassword(getUserKey(user),password,method=method,keyfile=keyfile)
 			if not password: self.showError(__lang__(30073))
 		else:
 			password = doKeyboard(__lang__(30062) % user,hidden=True)
 		if not self.addUser(user,password): return None,None
 		__addon__.setSetting('last_user',user)
 		if __addon__.getSetting('save_passwords') == 'true':
-			method = self.getPasswordCryptoMethod()
-			__addon__.setSetting('login_pass_%s' % user,self.preSavePassword(easypassword.encryptPassword(self.getUserKey(user),password,method=method,keyfile=self.getSetting('crypto_key_file'))))
+			method = getPasswordCryptoMethod()
+			__addon__.setSetting('login_pass_%s' % user,preSavePassword(easypassword.encryptPassword(getUserKey(user),password,method=method,keyfile=getSetting('crypto_key_file'))))
 		return user,password
-	
-	def getXBMCUser(self):
-		return xbmc.getInfoLabel('System.ProfileName')
-	
-	def getOSUser(self):
-		try:
-			return getpass.getuser()
-		except:
-			return ''
-		
-	def getUserKey(self,user):
-		return self.getXBMCUser() + self.getOSUser() + user
-	
-	def preSavePassword(self,password):
-		keyfile = self.getSetting('crypto_key_file', '')
-		if keyfile: keyfile = ':' + binascii.hexlify(keyfile)
-		if self.getSetting('crypto_type') == '0':
-			return 'a' + password + keyfile
-		elif self.getSetting('crypto_type') == '1':
-			return 'd' + password + keyfile
-		else:
-			return 'b' + password + keyfile
-		
-	def getPasswordCryptoMethod(self):
-		s_idx = self.getSetting('crypto_type','2')
-		if s_idx == '0':
-			return 'aes'
-		elif s_idx == '1':
-			return 'des'
-		else:
-			return 'both'
-		
-	def parsePassword(self,password):
-		type_c = password[0]
-		password = password[1:]
-		password_keyfile = password.split(':',1)
-		password = password_keyfile[0]
-		keyfile = None
-		if len(password_keyfile) == 2:
-			keyfile = binascii.unhexlify(password_keyfile[1])
-		if type_c.lower() == 'a':
-			type_c = 'aes'
-		elif type_c.lower() == 'd':
-			type_c = 'des'
-		else:
-			type_c = 'both'
-		return type_c,keyfile,password
 		
 	def addUser(self,user,password):
 		userlist = __addon__.getSetting('user_list').split('@,@')
@@ -1292,14 +1292,56 @@ class MainWindow(BaseWindow):
 	def onClose(self):
 		self.session.cleanCache()
 
+def doShareSocial(share):
+	session = EvernoteSession()
+	user = getSetting('last_user')
+	if not user: return False
+	password = getSetting('login_pass_%s' % user)
+	if not password: return False
+	method, keyfile, password = parsePassword(password)
+	password = easypassword.decryptPassword(getUserKey(user),password,method=method,keyfile=keyfile)
+	session.setUserPass(user, password)
+	session.startSession()
+	session.getNotebooks()
+	if share.shareType == 'image':
+		session.createNote(title=share.title,image_files=[share.content])
+	elif share.shareType == 'imagelink':
+		content = '<img src="%s" />' % share.content
+		session.createNote(html=content,title=share.title)
+	elif share.shareType == 'text':
+		session.createNote(text=content,title=share.title)
+	elif share.shareType == 'html':
+		session.createNote(html=content,title=share.title)
+	else:
+		return False
+	return True
+
+def registerAsShareTarget():
+	try:
+		import ShareSocial #@UnresolvedImport
+	except:
+		LOG('Could not import ShareSocial')
+		return
+	
+	target = ShareSocial.getShareTarget()
+	target.ID = 'script.evernote'
+	target.name = 'Evernote'
+	target.importName = 'xnote'
+	target.iconFile = ''
+	target.shareTypes = ['image','imagelink','text','html']
+	ShareSocial.registerShareTarget(target)
+	LOG('Registered as share target with ShareSocial')
+		
 def openWindow(window_name,session=None,**kwargs):
 	windowFile = 'script-evernote-%s.xml' % window_name
 	w = MainWindow(windowFile , xbmc.translatePath(__addon__.getAddonInfo('path')), THEME,session=session)
 	w.doModal()			
 	del w
 	
-if len(sys.argv) > 1:
-	if sys.argv[1] == 'crypto_help':
-		xbmcgui.Dialog().ok('Crypto Help','Passwords are encrypted using user data as the key.','Optional: include a keyfile whose contents must not','change and must be readable by XBMC.')
-else:
-	openWindow('main')
+if __name__ == '__main__':
+	if len(sys.argv) > 1:
+		if sys.argv[1] == 'crypto_help':
+			xbmcgui.Dialog().ok('Crypto Help','Passwords are encrypted using user data as the key.','Optional: include a keyfile whose contents must not','change and must be readable by XBMC.')
+	else:
+		registerAsShareTarget()
+		openWindow('main')
