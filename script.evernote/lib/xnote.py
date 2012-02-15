@@ -23,6 +23,7 @@ __version__ = '0.1.1'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
+
 ACTION_MOVE_LEFT      = 1
 ACTION_MOVE_RIGHT     = 2
 ACTION_MOVE_UP        = 3
@@ -1324,9 +1325,9 @@ def registerAsShareTarget():
 		return
 	
 	target = ShareSocial.getShareTarget()
-	target.ID = 'script.evernote'
+	target.addonID = 'script.evernote'
 	target.name = 'Evernote'
-	target.importName = 'xnote'
+	target.importPath = 'lib/xnote'
 	target.iconFile = ''
 	target.shareTypes = ['image','imagelink','text','html']
 	ShareSocial.registerShareTarget(target)
