@@ -55,11 +55,14 @@ loc = locale.getdefaultlocale()
 print loc
 ENCODING = loc[1] or 'utf-8'
 
-def ENCODE(string):
+def ENCODE(string,encoding=ENCODING):
+	try: string = str(string)
+	except: pass
 	return string.encode(ENCODING,'replace')
 
 def LOG(message):
-	xbmc.log('X-NOTE: %s' % ENCODE(str(message)))
+	message = ENCODE(message)
+	xbmc.log('X-NOTE: %s' % message)
 	
 def ERROR(message):
 	LOG(message)
@@ -82,7 +85,7 @@ class EvernoteSession():
 	def __init__(self):
 		self.consumerKey = "ruuk25-6163"
 		self.consumerSecret = "20ff7fdf04db11ec"
-		self.evernoteHost = "sandbox.evernote.com"
+		self.evernoteHost = "www.evernote.com"
 		self.userStoreUri = "https://" + self.evernoteHost + "/edam/user"
 		self.noteStoreUriBase = "https://" + self.evernoteHost + "/edam/note/"
 		
@@ -219,7 +222,7 @@ class EvernoteSession():
 		self.authCallWrapper(self.noteStore.deleteNote,'deleteNote()','noteStore.deleteNote', guid)
 		LOG("Successfully deleted note with guid: %s" % (guid))
 		
-	def createNote(self,text='',image_files=[],notebook=None,title='',html=''):
+	def createNote(self,text='',image_files=[],notebook=None,title='',html='',lat=None,lon=None):
 		note = Types.Note()
 		if not title:
 			if text:
@@ -227,7 +230,6 @@ class EvernoteSession():
 		if not title:
 			if image_files: title = os.path.basename(image_files[0])
 		if not title: title = 'UNTITLED'
-		
 		if type(notebook) == type(''):
 			notebook = self.getNotebookByGuid(notebook)
 			
@@ -237,16 +239,21 @@ class EvernoteSession():
 		else:
 			LOG("Creating a new note (%s) in default notebook: %s" % (title,self.defaultNotebook.name))
 			#notebook = self.defaultNotebook
-			
+		title = ENCODE(title,'utf-8')
 		note.title = title
+		if lat:
+			note.attributes = Types.NoteAttributes()
+			note.attributes.latitude = lat
+			note.attributes.longitude = lon
 		note.content = '<?xml version="1.0" encoding="UTF-8"?>'
 		note.content += '<!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">'
-		note.content += '<en-note>%s%s<br/>' % (self.prepareText(text),html)
+		note.content += '<en-note>%s%s<br/>' % (ENCODE(self.prepareText(text),'utf-8'),ENCODE(html,'utf-8'))
 		
 		if image_files:
 			resources = []
 			for ifile in image_files:
 				root,ext = os.path.splitext(ifile)
+				if not ext: continue
 				if ext == '.jpg': ext = '.jpeg'
 				ext = ext[1:]
 				image = open(ifile, 'rb').read()
@@ -599,8 +606,8 @@ class XNoteSession():
 				optionIDs.append('showmap')
 		elif focus == 120:
 			#Disabled until we get permissions for the api key
-			#options.append(__lang__(30018))
-			#optionIDs.append('deletenotebook')
+			options.append(__lang__(30018))
+			optionIDs.append('deletenotebook')
 			item = self.getFocusedItem(120)
 			if item.getProperty('published') == 'notpublished':
 				options.append(__lang__(30035))
@@ -808,7 +815,7 @@ class XNoteSession():
 		name = item.getProperty('name')
 		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), name):
 			self.esession.deleteNotebook(guid)
-			self.showNotebooks()
+			self.showNotebooks(True)
 			self.notify(__lang__(30106) % name)
 			#TODO: Perhaps clear the note list, when this is working we can check to see if we can still access the notes
 		
@@ -1015,9 +1022,9 @@ class XNoteSession():
 		
 	def prepareContentForWebviewer(self,contents):
 		contents = re.sub('<!DOCTYPE.*?>','',contents)
-		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/>',r'<img src="\1" />',contents)
-		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/>',r'<img src="\1" />',contents)
-		return contents
+		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/?>(?:</en-media>)?',r'<img src="\1" />',contents)
+		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/?>(?:</en-media>)?',r'<img src="\1" />',contents)
+		return contents.replace('<en-note>','<body>').replace('</en-note>','</body>')
 	
 	def notify(self,message,header='X-NOTE'):
 		mtime=2000
@@ -1304,15 +1311,16 @@ def doShareSocial(share):
 	session.setUserPass(user, password)
 	session.startSession()
 	session.getNotebooks()
-	if share.shareType == 'image':
-		session.createNote(title=share.title,image_files=[share.content])
-	elif share.shareType == 'imagelink':
-		content = '<img src="%s" />' % share.content
-		session.createNote(html=content,title=share.title)
+	if share.shareType == 'imagefile':
+		session.createNote(title=share.title,image_files=[share.media],lat=share.getLatitude(),lon=share.getLongitude())
+	elif share.shareType == 'image':
+		session.createNote(html=share.asHTML(True),title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
+	elif share.shareType == 'video':
+		session.createNote(html=share.asHTML(),title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
 	elif share.shareType == 'text':
-		session.createNote(text=content,title=share.title)
+		session.createNote(text=share.html,title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
 	elif share.shareType == 'html':
-		session.createNote(html=content,title=share.title)
+		session.createNote(html=share.html,title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
 	else:
 		return False
 	return True
@@ -1329,7 +1337,7 @@ def registerAsShareTarget():
 	target.name = 'Evernote'
 	target.importPath = 'lib/xnote'
 	target.iconFile = ''
-	target.shareTypes = ['image','imagelink','text','html']
+	target.shareTypes = ['image','imagefile','video','text','html']
 	ShareSocial.registerShareTarget(target)
 	LOG('Registered as share target with ShareSocial')
 		
