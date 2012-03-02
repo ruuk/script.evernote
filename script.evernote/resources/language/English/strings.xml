@@ -73,6 +73,9 @@
     <string id="30071">+Add New Stack</string>
     <string id="30072">Select Stack</string>
     <string id="30073">Error reading encryption keyfile</string>
+    <string id="30074">Invalid username</string>
+    <string id="30075">Invalid password</string>
+    <string id="30076">Reason:</string>
     
     <string id="30100">Created New User: %s</string>
     <string id="30101">Created Log Note: %s</string>

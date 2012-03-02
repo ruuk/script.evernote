@@ -448,13 +448,16 @@ class XNoteSession():
 		self.esession.startSession()
 		return True
 		
-	def error(self,error=None,message=''):
+	def error(self,error=None,message='',extra=''):
 		if error:
-			ERROR('ES API Error - %s:%s - Param: %s - %s' % (error.function,error.method,error.parameter,error.message))
-			err = 'ES API: %s' % error.message
+			if isinstance(error,EvernoteSessionError):
+				ERROR('ES API Error - %s:%s - Param: %s - %s' % (error.function,error.method,error.parameter,error.message))
+				err = 'ES API: %s' % error.message
+			else:
+				err = error
 		else:
 			err = ERROR(message)
-		self.showError(message,err)
+		self.showError(message,err,extra)
 	
 	def showError(self,l1,l2='',l3=''):
 		xbmcgui.Dialog().ok(__lang__(30040),l1,l2,l3)
@@ -565,7 +568,11 @@ class XNoteSession():
 			self.esession.authenticate(user, password)
 		except EvernoteSessionError as e:
 			if e.code == Errors.EDAMErrorCode.INVALID_AUTH:
-				self.error(e, __lang__(30042))
+				extra = ''
+				if e.parameter == 'username': extra = __lang__(30074)
+				elif e.parameter == 'password': extra = __lang__(30075)
+				if extra: e = __lang__(30076)
+				self.error(e, __lang__(30042),extra)
 				return False
 		except:
 			self.error(message=__lang__(30042))
