@@ -40,4 +40,4 @@ def getKeyFromFile(filename,pre=''):
 		kf.close()
 		return pre + key
 	except:
-		return None
+		return pre

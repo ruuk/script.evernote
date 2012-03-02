@@ -19,7 +19,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -417,22 +417,30 @@ class XNoteSession():
 		self.maps = maps.Maps(maps_path)
 		self.htmlconverter = htmltoxbmc.HTMLConverter()
 		
+		if not self.start():
+			if not self.chooseUser():
+				self.window.close()
+				return
+			if not self.start():
+				self.window.close()
+				return
+		
+		self.showNotebooks()
+	
+	def start(self):
 		try:
 			self.esession = EvernoteSession()
 			if not self.startSession():
-				self.window.close()
-				return
+				return False
 		except EvernoteSessionError as e:
 			self.error(e,message=__lang__(30041))
-			self.window.close()
-			return
+			return False
 		except:
 			self.error(message=__lang__(30041))
-			self.window.close()
-			return
+			return False
+		
+		return True
 			
-		self.showNotebooks()
-	
 	def startSession(self,user=None):
 		user,password = self.getUserPass(user)
 		if not user: return False
@@ -515,6 +523,7 @@ class XNoteSession():
 	def getUserPass(self,user=None,force=False):
 		if force:
 			user = doKeyboard(__lang__(30061))
+			if not user: return None,None
 		if not user:
 			if __addon__.getSetting('choose_user') == 'true':
 				user = self.chooseUser()
@@ -524,6 +533,7 @@ class XNoteSession():
 			user = self.chooseUser(0)
 		if not user:
 			user = doKeyboard(__lang__(30061))
+		if not user: return None,None
 		if not __addon__.getSetting('save_passwords') == 'true':
 			__addon__.setSetting('login_pass_%s' % user,'')
 		password = __addon__.getSetting('login_pass_%s' % user)
@@ -533,6 +543,7 @@ class XNoteSession():
 			if not password: self.showError(__lang__(30073))
 		else:
 			password = doKeyboard(__lang__(30062) % user,hidden=True)
+		if not password: return None,None
 		if not self.addUser(user,password): return None,None
 		__addon__.setSetting('last_user',user)
 		if __addon__.getSetting('save_passwords') == 'true':
@@ -540,8 +551,15 @@ class XNoteSession():
 			__addon__.setSetting('login_pass_%s' % user,preSavePassword(easypassword.encryptPassword(getUserKey(user),password,method=method,keyfile=getSetting('crypto_key_file'))))
 		return user,password
 		
-	def addUser(self,user,password):
+	def getUserList(self):
 		userlist = __addon__.getSetting('user_list').split('@,@')
+		if not userlist: return []
+		if not userlist[0]: return []
+		return userlist
+	
+	def addUser(self,user,password):
+		if not user or not password: return False
+		userlist = self.getUserList()
 		if user in userlist: return True
 		try:
 			self.esession.authenticate(user, password)
@@ -557,13 +575,44 @@ class XNoteSession():
 		__addon__.setSetting('user_list','@,@'.join(userlist))
 		return True
 		
-	def chooseUser(self,index=None):
-		if not self.usersCount(): return None
-		users = __addon__.getSetting('user_list').split('@,@')
-		if index != None: return users[index]
+	def removeUser(self):
+		user = self.chooseUser(just_users=True)
+		if not user: return
+		userlist = __addon__.getSetting('user_list').split('@,@')
+		idx = userlist.index(user)
+		if idx < 0: return
+		userlist.pop(idx)
+		__addon__.setSetting('user_list','@,@'.join(userlist))
+		__addon__.setSetting('login_pass_%s' % user,'')
+		last_user = __addon__.getSetting('last_user')
+		if last_user == user: __addon__.setSetting('last_user','')
+	
+	def chooseUser(self,index=None,just_users=False):
+		#if not self.usersCount(): return None
+		users = self.getUserList()
+		add = remove = -2
+		if not just_users:
+			add = len(users)
+			users.append(__lang__(30014))
+			if self.getUserList():
+				remove = len(users)
+				users.append(__lang__(30111))
+		
+		if index != None:
+			if not self.getUserList(): return None
+			return users[index]
 		idx = xbmcgui.Dialog().select(__lang__(30019),users)
 		if idx < 0:
+			if not self.usersCount():
+				self.window.close()
 			return None
+		elif idx == add:
+			self.getUserPass(force=True)
+		elif idx == remove:
+			self.removeUser()
+			if not self.usersCount():
+				self.chooseUser() #This is a loop
+				return None
 		else:
 			return users[idx]
 		
@@ -583,10 +632,8 @@ class XNoteSession():
 		self.window.initFocus()
 		
 	def usersCount(self):
-		ulist = __addon__.getSetting('user_list')
-		if not ulist: return 0
-		users = ulist.split('@,@')
-		return len(users)
+		ulist = self.getUserList()
+		return len(ulist)
 			
 	def doContextMenu(self):
 		options = [__lang__(30011),__lang__(30012),__lang__(30013),__lang__(30016),__lang__(30014),__lang__(30015)]

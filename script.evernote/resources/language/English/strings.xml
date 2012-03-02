@@ -13,7 +13,7 @@
     <string id="30011">Create XBMC Log Note</string>
     <string id="30012">Create Screenshot Note</string>
     <string id="30013">Write Note</string>
-    <string id="30014">Add User</string>
+    <string id="30014">+Add User</string>
     <string id="30015">Change User</string>
     <string id="30016">Create Notebook</string>
     <string id="30017">Delete Note</string>
@@ -85,6 +85,7 @@
     <string id="30108">Published Notebook: %s</string>
     <string id="30109">Un-Published Notebook: %s</string>
     <string id="30110">Notebook %s added to stack: %s</string>
+    <string id="30111">-Remove User</string>
     
     <string id="30220">Waiting...</string>
     <string id="30221">Waiting for thread to stop...</string>
