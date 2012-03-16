@@ -92,6 +92,8 @@ class EvernoteSession():
 		self.userStoreHttpClient = THttpClient.THttpClient(self.userStoreUri)
 		self.userStoreProtocol = TBinaryProtocol.TBinaryProtocol(self.userStoreHttpClient)
 		self.userStore = UserStore.Client(self.userStoreProtocol)
+		self.username = None
+		self.password = None
 		
 	def processCommandLine(self):
 		if len(sys.argv) < 3:
@@ -403,6 +405,12 @@ def parsePassword(password):
 		type_c = 'both'
 	return type_c,keyfile,password
 	
+def getUserList():
+	userlist = __addon__.getSetting('user_list').split('@,@')
+	if not userlist: return []
+	if not userlist[0]: return []
+	return userlist
+	
 class XNoteSession():
 	def __init__(self,window=None):
 		self.window = window
@@ -555,10 +563,7 @@ class XNoteSession():
 		return user,password
 		
 	def getUserList(self):
-		userlist = __addon__.getSetting('user_list').split('@,@')
-		if not userlist: return []
-		if not userlist[0]: return []
-		return userlist
+		return getUserList()
 	
 	def addUser(self,user,password):
 		if not user or not password: return False
@@ -1354,31 +1359,6 @@ class MainWindow(BaseWindow):
 	def onClose(self):
 		self.session.cleanCache()
 
-def doShareSocial(share):
-	session = EvernoteSession()
-	user = getSetting('last_user')
-	if not user: return False
-	password = getSetting('login_pass_%s' % user)
-	if not password: return False
-	method, keyfile, password = parsePassword(password)
-	password = easypassword.decryptPassword(getUserKey(user),password,method=method,keyfile=keyfile)
-	session.setUserPass(user, password)
-	session.startSession()
-	session.getNotebooks()
-	if share.shareType == 'imagefile':
-		session.createNote(title=share.title,image_files=[share.media],lat=share.getLatitude(),lon=share.getLongitude())
-	elif share.shareType == 'image':
-		session.createNote(html=share.asHTML(True),title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
-	elif share.shareType == 'video':
-		session.createNote(html=share.asHTML(),title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
-	elif share.shareType == 'text':
-		session.createNote(text=share.html,title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
-	elif share.shareType == 'html':
-		session.createNote(html=share.html,title=share.title,lat=share.getLatitude(),lon=share.getLongitude())
-	else:
-		return False
-	return True
-
 def registerAsShareTarget():
 	try:
 		import ShareSocial #@UnresolvedImport
@@ -1389,8 +1369,8 @@ def registerAsShareTarget():
 	target = ShareSocial.getShareTarget()
 	target.addonID = 'script.evernote'
 	target.name = 'Evernote'
-	target.importPath = 'lib/xnote'
-	target.iconFile = ''
+	target.importPath = 'lib/script_evernote_share'
+	target.iconPath = os.path.join(__addon__.getAddonInfo('path'),'evernote.png')
 	target.shareTypes = ['image','imagefile','video','text','html']
 	ShareSocial.registerShareTarget(target)
 	LOG('Registered as share target with ShareSocial')
