@@ -19,7 +19,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
-__version__ = '0.1.4'
+__version__ = '0.1.5'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -58,7 +58,9 @@ ENCODING = loc[1] or 'utf-8'
 def ENCODE(string,encoding=ENCODING):
 	try: string = str(string)
 	except: pass
-	return string.encode(ENCODING,'replace')
+	try: string = string.decode('utf-8')
+	except: pass
+	return string.encode(encoding,'replace')
 
 def LOG(message):
 	message = ENCODE(message)
@@ -70,6 +72,7 @@ def ERROR(message):
 	err = str(sys.exc_info()[1])
 	return err
 
+LOG('Version: ' + __version__)
 class EvernoteSessionError(Exception):
 	def __init__(self,func,meth,e):
 		errorText = Errors.EDAMErrorCode._VALUES_TO_NAMES[e.errorCode]
@@ -489,7 +492,7 @@ class XNoteSession():
 				if now - lastAccessDate > expiration:
 					try:
 						LOG('Removing: %s' % show)
-						#os.remove(image)
+						os.remove(image)
 					except OSError:
 						LOG('Could not remove: %s' % show)
 						
@@ -940,7 +943,7 @@ class XNoteSession():
 					item.setProperty('stack','stack')
 					items.append(item)
 				for nb in stacks[stack]:
-					count = ncc.notebookCounts.get(nb.guid)
+					count = ncc.notebookCounts and ncc.notebookCounts.get(nb.guid) or 0
 					ct_disp = ''
 					if count:
 						total += count
@@ -983,7 +986,7 @@ class XNoteSession():
 		self.currentNoteFilter = None
 		
 	def showNotes(self,nbguid=None,search=None):
-		if not nbguid and not search:
+		if not nbguid and not search and self.currentNoteFilter:
 			nbguid,search = self.currentNoteFilter
 		if not nbguid and not search: return
 		self.currentNoteFilter = (nbguid,search)

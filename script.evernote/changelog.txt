@@ -1,6 +1,10 @@
 X-Note Changelog
 
-Current Version : 0.1.4
+Current Version : 0.1.5
+
+*** 0.1.5 ***
+
+Bug fixes for encoding, errors after creating new note, and error possibly caused when no notebooks have notes.
 
 *** 0.1.4 ***
 
