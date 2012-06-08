@@ -19,7 +19,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -735,6 +735,8 @@ class XNoteSession():
 		
 	def getXBMCLog(self):
 		log_file = xbmc.translatePath('special://temp/xbmc.log')
+		if not os.path.exists(log_file): log_file = xbmc.translatePath('special://home/xbmc.log')
+		if not os.path.exists(log_file): xbmcgui.Dialog().ok('Error',"Could not find log file.")
 		lf = open(log_file,'r')
 		data = lf.read()
 		lf.close()

@@ -1,6 +1,10 @@
 X-Note Changelog
 
-Current Version : 0.1.5
+Current Version : 0.1.6
+
+*** 0.1.6 ***
+
+Now should find log file on Windows systems (perhaps other systems wouldn't have worked previously as well)
 
 *** 0.1.5 ***
 
