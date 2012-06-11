@@ -1,6 +1,15 @@
 X-Note Changelog
 
-Current Version : 0.1.6
+TODO:
+ Add an option to view public notebook URLs
+
+Current Version : 0.1.7
+
+*** 0.1.7 ***
+
+Added an option to view a published notebook's URL
+Updated Evenote api to current 1.21 (06-08-2012)
+Now shows linked public and private shared notebooks
 
 *** 0.1.6 ***
 

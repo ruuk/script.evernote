@@ -81,7 +81,7 @@ class EvernoteSessionError(Exception):
 		self.code = e.errorCode
 		self.function = func
 		self.method = meth
-		self.parameter = e.parameter
+		self.parameter = hasattr(e,'parameter') and e.parameter or '?'
 		self.message = errorText
 			
 class EvernoteSession():
@@ -97,6 +97,9 @@ class EvernoteSession():
 		self.userStore = UserStore.Client(self.userStoreProtocol)
 		self.username = None
 		self.password = None
+		self.noteStores = {}
+		self.tokens = {}
+		self._tempToken = None
 		
 	def processCommandLine(self):
 		if len(sys.argv) < 3:
@@ -160,17 +163,19 @@ class EvernoteSession():
 					LOG("The password entered is incorrect")
 			raise EvernoteSessionError('startSession()','userStore.authenticate',e)
 		
-	def getNotebooks(self,ignoreCache=False):
-		if self.notebooks and not ignoreCache: return self.notebooks
-		
-		notebooks = self.authCallWrapper(self.noteStore.listNotebooks,'getNotebooks()','noteStore.listNotebooks')
-		
-		self.notebooks = notebooks
-		LOG("Found %s notebooks:" % len(notebooks))
-		for notebook in notebooks:
-			LOG("  * %s" % notebook.name)
-			if notebook.defaultNotebook:
-				self.defaultNotebook = notebook
+	def getNotebooks(self,ignoreCache=False,linked=False):
+		if linked:
+			notebooks = self.authCallWrapper(self.noteStore.listLinkedNotebooks,'getNotebooks()','noteStore.listLinkedNotebooks')
+			LOG("Found %s linked notebooks:" % len(notebooks))
+		else:
+			if self.notebooks and not ignoreCache: return self.notebooks
+			notebooks = self.authCallWrapper(self.noteStore.listNotebooks,'getNotebooks()','noteStore.listNotebooks')
+			self.notebooks = notebooks
+			LOG("Found %s notebooks:" % len(notebooks))
+			for notebook in notebooks:
+				LOG("  * %s" % notebook.name)
+				if notebook.defaultNotebook:
+					self.defaultNotebook = notebook
 		return notebooks
 
 	def getNotebookCounts(self):
@@ -201,12 +206,32 @@ class EvernoteSession():
 			pub.publicDescription = desc
 			notebook.publishing = pub
 		self.authCallWrapper(self.noteStore.updateNotebook,'publishNotebook()','noteStore.updateNotebook', notebook)
+	
+	def addNoteStore(self,guid,notestore,token=None):
+		self.noteStores[guid] = notestore
+		if token: self.tokens[guid] = token
 		
-	def getNoteByGuid(self,guid):
-		note = self.authCallWrapper(self.noteStore.getNote,'getNoteByGuid()','noteStore.getNote', guid, True, False, False, False)
+	def getNoteStore(self,guid):
+		if guid in self.noteStores:
+			LOG('Using other noteStore')
+			self.setTempToken(guid)
+			return self.noteStores[guid]
+		return self.noteStore
+	
+	def setTempToken(self,guid):
+		if guid in self.tokens:
+			LOG('Using other token')
+			self._tempToken = self.tokens[guid]
+		else:
+			self._tempToken = None
+	
+	def getNoteByGuid(self,guid,nbguid=None):
+		noteStore = self.getNoteStore(nbguid)
+		note = self.authCallWrapper(noteStore.getNote,'getNoteByGuid()','noteStore.getNote', guid, True, False, False, False)
 		return note
 	
 	def getNoteList(self,guid=None,search=None):
+		noteStore = self.getNoteStore(guid)
 		if guid and not type(guid) == type(''): guid = guid.guid
 		nf = NoteStore.NoteFilter()
 		if guid:
@@ -216,8 +241,28 @@ class EvernoteSession():
 			nf.words = search
 			LOG('Getting notes for search: %s' % search)
 	
-		notes = self.authCallWrapper(self.noteStore.findNotes,'getNoteList()','noteStore.findNotes',nf,0,999)
+		notes = self.authCallWrapper(noteStore.findNotes,'getNoteList()','noteStore.findNotes',nf,0,999)
 		return notes
+		
+	def getLinkedNoteList(self,guid,shardid,sharekey,notestoreurl,username,publicUri):
+		info = self.userStore.getPublicUserInfo(username)
+		noteStoreUri = info.noteStoreUrl #self.noteStoreUriBase + info.shardId
+		noteStoreHttpClient = THttpClient.THttpClient(noteStoreUri)
+		noteStoreProtocol = TBinaryProtocol.TBinaryProtocol(noteStoreHttpClient)
+		noteStore = NoteStore.Client(noteStoreProtocol)
+		token = None
+		if sharekey:
+			res = noteStore.authenticateToSharedNotebook(sharekey, self.authToken)
+			token = res.authenticationToken
+			notebook = noteStore.getSharedNotebookByAuth(token)
+			guid = notebook.notebookGuid
+		else:
+			notebook = noteStore.getPublicNotebook(info.userId, publicUri)
+			guid = notebook.guid
+			
+		self.addNoteStore(guid, noteStore, token)
+		
+		return self.getNoteList(guid), guid
 		
 	def prepareText(self,text):
 		return re.sub('[\n\r]+','<br />',escape(text))
@@ -257,7 +302,7 @@ class EvernoteSession():
 		if image_files:
 			resources = []
 			for ifile in image_files:
-				root,ext = os.path.splitext(ifile)
+				root,ext = os.path.splitext(ifile) #@UnusedVariable
 				if not ext: continue
 				if ext == '.jpg': ext = '.jpeg'
 				ext = ext[1:]
@@ -321,12 +366,19 @@ class EvernoteSession():
 		notebook.stack = stack
 		return self.authCallWrapper(self.noteStore.updateNotebook,'addNotebookToStack()','noteStore.updateNotebook', notebook)
 		
-	def getResourceData(self,guid):
-		return self.authCallWrapper(self.noteStore.getResourceData,'getResourceData()','noteStore.getResourceData', guid)
+	def getResourceData(self,guid,nbguid=None):
+		notestore = self.getNoteStore(nbguid)
+		return self.authCallWrapper(notestore.getResourceData,'getResourceData()','noteStore.getResourceData', guid)
 		
 	def authCallWrapper(self,function,func_name,meth_name,*args,**kwargs):
+		if self._tempToken:
+			token = self._tempToken
+			self._tempToken = None
+		else:
+			token = self.authToken
+			
 		try:
-			return function(self.authToken,*args,**kwargs)
+			return function(token,*args,**kwargs)
 		except Errors.EDAMUserException as e:
 			if e.errorCode != Errors.EDAMErrorCode.AUTH_EXPIRED:
 				raise EvernoteSessionError(func_name,meth_name,e)
@@ -338,7 +390,7 @@ class EvernoteSession():
 		self.startSession()
 		LOG('API: Retrying Original Call...')
 		try:
-			return function(self.authToken,*args,**kwargs)
+			return function(token,*args,**kwargs)
 		except Errors.EDAMUserException as e:
 			raise EvernoteSessionError(func_name,meth_name,e)
 		except Errors.EDAMSystemException as e:
@@ -420,6 +472,12 @@ class XNoteSession():
 		self._pdialog = None
 		self.currentNoteFilter = None
 		self.updatingNote = None
+		self.clipboard = None
+		try:
+			import Clipboard #@UnresolvedImport
+			self.clipboard = Clipboard.Clipboard()
+		except:
+			LOG('No Clipboard: Failed to import Clipboard')
 		
 		self.CACHE_PATH = os.path.join(xbmc.translatePath(__addon__.getAddonInfo('profile')),'cache')
 		maps_path = os.path.join(self.CACHE_PATH,'maps')
@@ -516,13 +574,25 @@ class XNoteSession():
 		
 	def notebookSelected(self):
 		item = self.getFocusedItem(120)
-		if item.getProperty('stack') == 'stack':
+		if item.getProperty('stack') == 'stack' and not item.getProperty('linked'):
 			stack = item.getLabel()
 			self.showNotes(search='stack:"%s"' % stack)
 			self.setNotebookTitleDisplay(stack)
 			return
+		elif not item.getProperty('stack') == 'stack' and item.getProperty('linked'):
+			name = item.getLabel()
+			guid = item.getProperty('guid')
+			shardId = item.getProperty('shardid')
+			shareKey = item.getProperty('sharekey') or None
+			notestoreurl = item.getProperty('notestoreurl')
+			username = item.getProperty('username')
+			publicUri = item.getProperty('publicuri')
+			self.showNotes(guid,shardid=shardId,sharekey=shareKey,notestoreurl=notestoreurl,username=username,publicuri=publicUri)
+			self.setNotebookTitleDisplay(name)
+			return
 		guid = item.getProperty('guid')
 		self.setNotebookTitleDisplay(item.getProperty('name'))
+		LOG('Showing notes for notebook with guid: ' + guid)
 		self.showNotes(guid)
 		
 	def setNotebookTitleDisplay(self,name=''):
@@ -531,7 +601,8 @@ class XNoteSession():
 	def noteSelected(self):
 		item = self.getFocusedItem(125)
 		guid = item.getProperty('guid')
-		note = self.esession.getNoteByGuid(guid)
+		nbguid = item.getProperty('nbguid')
+		note = self.esession.getNoteByGuid(guid,nbguid)
 		self.viewNote(note)
 	
 	def getUserPass(self,user=None,force=False):
@@ -632,7 +703,7 @@ class XNoteSession():
 			return users[idx]
 		
 	def createNewUser(self):
-		user,password = self.getUserPass(force=True)
+		user,password = self.getUserPass(force=True) #@UnusedVariable
 		if not user: return
 		self.changeUser(user)
 		self.notify(__lang__(30100) % user)
@@ -668,16 +739,22 @@ class XNoteSession():
 				optionIDs.append('showmap')
 		elif focus == 120:
 			#Disabled until we get permissions for the api key
-			options.append(__lang__(30018))
-			optionIDs.append('deletenotebook')
 			item = self.getFocusedItem(120)
+			linked = item.getProperty('linked')
+			if not linked:
+				options.append(__lang__(30018))
+				optionIDs.append('deletenotebook')
 			if item.getProperty('published') == 'notpublished':
-				options.append(__lang__(30035))
+				if not linked: options.append(__lang__(30035))
 			else:
-				options.append(__lang__(30036))
-			optionIDs.append('publishnotebook')
-			options.append(__lang__(30038))
-			optionIDs.append('addtostack')
+				if item.getProperty('publicuri') or item.getProperty('published'):
+					optionIDs.append('viewurl')
+					options.append(__lang__(30112))
+				if not linked: options.append(__lang__(30036))
+			if not linked:
+				optionIDs.append('publishnotebook')
+				options.append(__lang__(30038))
+				optionIDs.append('addtostack')
 			
 		idx = xbmcgui.Dialog().select(__lang__(30010),options)
 		if idx < 0:
@@ -713,6 +790,9 @@ class XNoteSession():
 			elif option == 'publishnotebook':
 				err_msg = __lang__(30056)
 				self.toggleNotebookPublished()
+			elif option == 'viewurl':
+				err_msg = __lang__(30059)
+				self.viewPublishedNotebookURL()
 			elif option == 'showmap':
 				err_msg = __lang__(30057)
 				self.showMap()
@@ -727,7 +807,8 @@ class XNoteSession():
 	def showMap(self):
 		item = self.getFocusedItem(125)
 		guid = item.getProperty('guid')
-		note = self.esession.getNoteByGuid(guid)
+		nbguid = item.getProperty('nbguid')
+		note = self.esession.getNoteByGuid(guid,nbguid)
 		lat = note.attributes.latitude
 		lon = note.attributes.longitude
 		self.maps.doMap({'lat':lat,'lon':lon})#,{'lat':lat,'lon':lon,'zoom':'19'})
@@ -831,6 +912,30 @@ class XNoteSession():
 			
 	def cleanURI(self,uri):
 		return re.sub('[^\w_-]','',uri).lower()
+		
+	def viewPublishedNotebookURL(self):
+		item = self.getFocusedItem(120)
+		guid = item.getProperty('guid')
+		notebook = self.esession.getNotebookByGuid(guid)
+		if hasattr(notebook, 'publishing') and notebook.publishing:
+			url = 'http://' + self.esession.evernoteHost + '/pub/' + self.esession.user.username + '/' + str(notebook.publishing.uri)
+		elif item.getProperty('publicuri'):
+			url = 'http://' + self.esession.evernoteHost + '/pub/' + str(item.getProperty('username')) + '/' + str(item.getProperty('publicuri'))
+		else:
+			return
+		
+		cf= lambda s,p: [ s[i:i+p] for i in range(0,len(s),p) ]
+		parts = cf(url,50)[:2]
+		if not self.clipboard:
+			xbmcgui.Dialog().ok('URL',*parts)
+			return
+		parts.append('Save to clipboard?')
+		yes = xbmcgui.Dialog().yesno('URL',*parts)
+		if yes:
+			share = self.clipboard.getShare('script.evernote','link')
+			share.page = url
+			self.clipboard.setClipboard(share)
+				
 		
 	def toggleNotebookPublished(self):
 		item = self.getFocusedItem(120)
@@ -959,6 +1064,7 @@ class XNoteSession():
 					pub = nb.published and 'published' or 'notpublished'
 					item.setProperty('published',pub)
 					items.append(item)
+			items = self.showLinkedNotebooks(items)
 			all_item.setLabel(__lang__(30069) + ' (%s)' % total)
 			wlist = self.window.getControl(120)
 			wlist.reset()
@@ -970,6 +1076,31 @@ class XNoteSession():
 		finally:
 			self.endProgress()
 		
+	def showLinkedNotebooks(self,items):
+		item = xbmcgui.ListItem(label=__lang__(30113))
+		item.setProperty('stack','stack')
+		item.setProperty('linked','linked')
+		items.append(item)
+		notebooks = self.esession.getNotebooks(linked=True)
+		for nb in notebooks:
+			item = xbmcgui.ListItem()
+			item.setThumbnailImage('')
+			item.setLabel(nb.shareName+' ('+nb.username+')')
+			item.setProperty('stack','stacked')
+			item.setProperty('guid',nb.guid)
+			item.setProperty('name',nb.shareName)
+			item.setProperty('username',nb.username)
+			#print nb.__dict__
+			item.setProperty('shardid',nb.shardId)
+			item.setProperty('notestoreurl',nb.noteStoreUrl)
+			if nb.uri: item.setProperty('publicuri',nb.uri)
+			pub = nb.uri and 'published' or 'notpublished'
+			item.setProperty('published',pub)
+			if nb.shareKey: item.setProperty('sharekey',nb.shareKey)
+			item.setProperty('linked','linked')
+			items.append(item)
+		return items
+	
 	def updateNotebookCounts(self):
 		ncc = self.esession.getNotebookCounts()
 		wlist = self.window.getControl(120)
@@ -987,7 +1118,7 @@ class XNoteSession():
 		self.window.getControl(125).reset()
 		self.currentNoteFilter = None
 		
-	def showNotes(self,nbguid=None,search=None):
+	def showNotes(self,nbguid=None,search=None,shardid=None,sharekey=None,notestoreurl=None,username=None,publicuri=None):
 		if not nbguid and not search and self.currentNoteFilter:
 			nbguid,search = self.currentNoteFilter
 		if not nbguid and not search: return
@@ -995,7 +1126,10 @@ class XNoteSession():
 		
 		self.startProgress(text=__lang__(30032))
 		try:
-			noteList = self.esession.getNoteList(nbguid,search)
+			if shardid:
+				noteList, nbguid = self.esession.getLinkedNoteList(nbguid, shardid, sharekey, notestoreurl,username,publicuri)
+			else:
+				noteList = self.esession.getNoteList(nbguid,search)
 			items = []
 			ct=0
 			tot= len(noteList.notes)
@@ -1013,12 +1147,13 @@ class XNoteSession():
 							filename = note.guid + ext
 							path = self.isCached(filename)
 							if not path:
-								data = self.esession.getResourceData(res.guid)
+								data = self.esession.getResourceData(res.guid,nbguid)
 								path = self.cacheImage(filename,data)
 				item = xbmcgui.ListItem()
 				item.setThumbnailImage(path)
 				item.setLabel(note.title)
 				item.setProperty('guid',note.guid)
+				item.setProperty('nbguid',nbguid)
 				item.setProperty('content','')
 				if note.attributes.latitude: item.setProperty('haslocation','yes')
 				items.append(item)
@@ -1070,7 +1205,7 @@ class XNoteSession():
 						filename = binascii.hexlify(res.data.bodyHash)
 						path = self.isCached(filename)
 						if not path:
-							data = self.esession.getResourceData(res.guid)
+							data = self.esession.getResourceData(res.guid,note.notebookGuid)
 							path = self.cacheImage(filename,data)
 					ct+=1		
 			url = 'file://%s' % noteFile
@@ -1119,6 +1254,7 @@ class XNoteSession():
 		item = self.getFocusedItem(125)
 		if not item: return
 		guid = item.getProperty('guid')
+		nbguid = item.getProperty('nbguid')
 		if self.updatingNote == guid: return
 		self.updatingNote = guid
 		time.sleep(0.5)
@@ -1129,7 +1265,7 @@ class XNoteSession():
 		LOG('Updating Note: %s' % guid)
 		note = None
 		try:
-			note = self.esession.getNoteByGuid(guid)
+			note = self.esession.getNoteByGuid(guid,nbguid)
 		except httplib.ResponseNotReady:
 			LOG('getNote() - Failed: ResponseNotReady - Retrying...')
 		except AttributeError:
@@ -1137,7 +1273,7 @@ class XNoteSession():
 		if not note:
 			time.sleep(0.5)
 			try:
-				note = self.esession.getNoteByGuid(guid)
+				note = self.esession.getNoteByGuid(guid,nbguid)
 			except httplib.ResponseNotReady:
 				LOG('getNote() - Failed: ResponseNotReady - Giving Up')
 				return
@@ -1157,7 +1293,7 @@ class XNoteSession():
 				return
 		LOG('Updated Changed Note: %s' % guid)
 		content = self.prepareContentForWebviewer(note.content)
-		content, title = self.htmlconverter.htmlToDisplay(content)
+		content, title = self.htmlconverter.htmlToDisplay(content) #@UnusedVariable
 		item.setProperty('content',content)
 		
 ######################################################################################

@@ -58,6 +58,7 @@
     <string id="30056">Error (Un)Publishing Notebook</string>
     <string id="30057">Error Showing Map</string>
     <string id="30058">Error Adding Notebook To Stack</string>
+    <string id="30059">Error Viewing URL</string>
     
     <string id="30060">XBMC Screenshot: %s</string>
     <string id="30061">Enter Username</string>
@@ -89,7 +90,9 @@
     <string id="30109">Un-Published Notebook: %s</string>
     <string id="30110">Notebook %s added to stack: %s</string>
     <string id="30111">-Remove User</string>
-    
+    <string id="30112">View notebook URL</string>
+    <string id="30113">Linked Notebooks</string>
+
     <string id="30220">Waiting...</string>
     <string id="30221">Waiting for thread to stop...</string>
         
