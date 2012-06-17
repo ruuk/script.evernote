@@ -19,7 +19,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
-__version__ = '0.1.7'
+__version__ = '0.1.8'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -474,10 +474,11 @@ class XNoteSession():
 		self.updatingNote = None
 		self.clipboard = None
 		try:
-			import Clipboard #@UnresolvedImport
-			self.clipboard = Clipboard.Clipboard()
+			import SSClipboard #@UnresolvedImport
+			self.clipboard = SSClipboard.Clipboard()
+			LOG('Clipboard Enabled')
 		except:
-			LOG('No Clipboard: Failed to import Clipboard')
+			LOG('Clipboard Disabled: Failed to import SSClipboard')
 		
 		self.CACHE_PATH = os.path.join(xbmc.translatePath(__addon__.getAddonInfo('profile')),'cache')
 		maps_path = os.path.join(self.CACHE_PATH,'maps')

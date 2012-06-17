@@ -3,7 +3,11 @@ X-Note Changelog
 TODO:
  Add an option to view public notebook URLs
 
-Current Version : 0.1.7
+Current Version : 0.1.8
+
+*** 0.1.8 ***
+
+Made changes to accommodate clipboard name change from Clipboard to SSClipboard
 
 *** 0.1.7 ***
 
