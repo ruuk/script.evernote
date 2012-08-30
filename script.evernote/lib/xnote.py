@@ -5,6 +5,7 @@ from webviewer import htmltoxbmc #@UnresolvedImport
 import maps
 from crypto import easypassword
 
+
 #Evernote Imports
 import hashlib, binascii, getpass
 from xml.sax.saxutils import escape
@@ -19,7 +20,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-25-2012'
-__version__ = '0.1.8'
+__version__ = '0.1.9'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -73,6 +74,7 @@ def ERROR(message):
 	return err
 
 LOG('Version: ' + __version__)
+
 class EvernoteSessionError(Exception):
 	def __init__(self,func,meth,e):
 		errorText = Errors.EDAMErrorCode._VALUES_TO_NAMES[e.errorCode]
@@ -118,15 +120,12 @@ class EvernoteSession():
 	def startSession(self,authResult=None):
 		self.defaultNotebook = None
 		self.notebooks = []
-		
-		versionOK = self.userStore.checkVersion("Python EDAMTest",
-										   UserStoreConstants.EDAM_VERSION_MAJOR,
-										   UserStoreConstants.EDAM_VERSION_MINOR)
-		
-		LOG("EDAM protocol version up to date? - %s " % str(versionOK))
-		if not versionOK:
-			return None
-		
+		import ssl
+		try:
+			if not self.checkVersion(): return None
+		except ssl.SSLError:
+			self.fixSSL()
+			if not self.checkVersion(): return None
 		# Authenticate the user
 		if not authResult:
 			authResult = self.authenticate(self.username, self.password)
@@ -136,13 +135,68 @@ class EvernoteSession():
 		LOG("Authentication was successful for %s" % self.user.username)
 		LOG("Authentication token = %s" % self.authToken)
 		
-		noteStoreUri =  self.noteStoreUriBase + self.user.shardId
+		#noteStoreUri =  self.noteStoreUriBase + self.user.shardId
+		noteStoreUri = self.userStore.getNoteStoreUrl(self.authToken)
 		noteStoreHttpClient = THttpClient.THttpClient(noteStoreUri)
 		noteStoreProtocol = TBinaryProtocol.TBinaryProtocol(noteStoreHttpClient)
 		self.noteStore = NoteStore.Client(noteStoreProtocol)
 		
 		return self.user
 
+	def fixSSL(self):
+		LOG('SSL Failed, attempting workaround')
+		import socket, ssl
+		class HTTPSConnection(httplib.HTTPConnection):
+				"This class allows communication via SSL."
+		
+				default_port = httplib.HTTPS_PORT
+		
+				def __init__(self, host, port=None, key_file=None, cert_file=None,
+							 strict=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+							 source_address=None):
+					httplib.HTTPConnection.__init__(self, host, port, strict, timeout,
+											source_address)
+					self.key_file = key_file
+					self.cert_file = cert_file
+		
+				def connect(self):
+					"Connect to a host on a given (SSL) port."
+		
+					sock = socket.create_connection((self.host, self.port),
+													self.timeout, self.source_address)
+					if self._tunnel_host:
+						self.sock = sock
+						self._tunnel()
+					self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file,ssl_version=ssl.PROTOCOL_TLSv1)
+		httplib.HTTPSConnection = HTTPSConnection
+		
+		class HTTPS(httplib.HTTP):
+			_connection_class = HTTPSConnection
+		
+			def __init__(self, host='', port=None, key_file=None, cert_file=None,
+							 strict=None):
+					# provide a default host, pass the X509 cert info
+		
+					# urf. compensate for bad input.
+					if port == 0:
+						port = None
+					self._setup(self._connection_class(host, port, key_file,
+													   cert_file, strict))
+		
+					# we never actually use these for anything, but we keep them
+					# here for compatibility with post-1.5.2 CVS.
+					self.key_file = key_file
+					self.cert_file = cert_file
+		httplib.HTTPS = HTTPS
+
+	def checkVersion(self):
+		versionOK = self.userStore.checkVersion("Python EDAMTest",
+										   UserStoreConstants.EDAM_VERSION_MAJOR,
+										   UserStoreConstants.EDAM_VERSION_MINOR)
+		
+		LOG("EDAM protocol version up to date? - %s " % str(versionOK))
+		return versionOK
+		
 	def authenticate(self,user, password):
 		try:
 			return self.userStore.authenticate(user, password, self.consumerKey, self.consumerSecret)
