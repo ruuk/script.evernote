@@ -3,8 +3,6 @@ import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
 import sys, os, re, traceback, glob, time, threading, httplib
 from webviewer import htmltoxbmc #@UnresolvedImport
 import maps
-from crypto import easypassword
-
 
 #Evernote Imports
 import hashlib, binascii, getpass
@@ -19,8 +17,8 @@ import evernote.edam.error.ttypes as Errors
 
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
-__date__ = '1-25-2012'
-__version__ = '0.1.9'
+__date__ = '1-21-2013'
+__version__ = '0.2.0'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -88,11 +86,16 @@ class EvernoteSessionError(Exception):
 			
 class EvernoteSession():
 	def __init__(self):
-		self.consumerKey = "ruuk25-6163"
-		self.consumerSecret = "20ff7fdf04db11ec"
-		self.evernoteHost = "www.evernote.com"
+		self.consumerKey = "ruuk25-1051"
+		self.consumerSecret = "5a5ca4c9cecf455b"
+		self.evernoteHost = "sandbox.evernote.com"
+		
 		self.userStoreUri = "https://" + self.evernoteHost + "/edam/user"
 		self.noteStoreUriBase = "https://" + self.evernoteHost + "/edam/note/"
+		
+		self.request_token_url = 'https://' + self.evernoteHost + '/oauth'
+		self.authorize_url = 'https://' + self.evernoteHost + '/OAuth.action'
+		self.callback_url = 'http://2ndmind.com'
 		
 		self.userStoreHttpClient = THttpClient.THttpClient(self.userStoreUri)
 		self.userStoreProtocol = TBinaryProtocol.TBinaryProtocol(self.userStoreHttpClient)
@@ -102,6 +105,89 @@ class EvernoteSession():
 		self.noteStores = {}
 		self.tokens = {}
 		self._tempToken = None
+		self.authToken = None
+		
+	def authenticate(self):
+		import urlparse, urllib
+		
+		oauth = self.getOAuth()
+		client = self.getOAuthClient(oauth)
+		
+		resp, content = client.request(self.request_token_url + '?oauth_callback='+ urllib.quote(self.callback_url), "POST")
+
+		if resp['status'] != '200':
+			#print content
+			raise Exception("Invalid response %s." % resp['status'])
+		
+		request_token = dict(urlparse.parse_qsl(content))
+		
+		print "Request Token:"
+		print "    - oauth_token        = %s" % request_token['oauth_token']
+		print "    - oauth_token_secret = %s" % request_token['oauth_token_secret']
+		auth_url = "%s?oauth_token=%s" % (self.authorize_url, request_token['oauth_token'])
+		token_url = self.webwiewer(auth_url)
+		LOG('AUTH RESPONSE URL: ' + token_url)
+		self._tempToken = self.authPart2(oauth,token_url,request_token)
+		return self._tempToken
+		
+	def getOAuth(self):
+		import httplib2, ssl
+		def _ssl_wrap_socket(sock, key_file, cert_file,
+							 disable_validation, ca_certs):
+			if disable_validation:
+				cert_reqs = ssl.CERT_NONE
+			else:
+				cert_reqs = ssl.CERT_REQUIRED
+			return ssl.wrap_socket(sock, keyfile=key_file, certfile=cert_file,
+								   cert_reqs=cert_reqs, ca_certs=ca_certs, ssl_version=ssl.PROTOCOL_TLSv1)
+		httplib2._ssl_wrap_socket = _ssl_wrap_socket
+			
+		import oauth2
+		return oauth2
+	
+	def getOAuthClient(self,oauth,token=None):
+		consumer = oauth.Consumer(self.consumerKey, self.consumerSecret)
+		if token:
+			client = oauth.Client(consumer, token)
+		else:
+			client = oauth.Client(consumer)
+		return client
+		
+	def authPart2(self,oauth, url,request_token):
+		import urlparse
+		request_token2 = dict(urlparse.parse_qsl(url))
+		print 'x %s' % request_token2 
+		oauth_verifier = request_token2.get('oauth_verifier', '')
+		print 'y %s' % oauth_verifier 
+		
+		try:
+			token = oauth.Token(
+				request_token['oauth_token'],
+				request_token['oauth_token_secret'])
+			token.set_verifier(oauth_verifier)
+	
+			client = self.getOAuthClient(oauth,token)
+	
+			resp, content = client.request(self.request_token_url, 'POST')
+			access_token = dict(urlparse.parse_qsl(content))
+			auth_token = access_token['oauth_token']
+		except KeyError:
+			return None
+		
+		return auth_token
+		
+	def webwiewer(self,url):
+		from webviewer import webviewer #@UnresolvedImport
+		autoforms = [	{'name':'login_form'},{'name':'oauth_authorize_form'}]
+		autoclose = {	'url':'.*&oauth_verifier=.*',
+						'heading':__lang__(30505),
+						'message':__lang__(30506)}
+
+		
+		print '-----------------------------------------------START'
+		url,html = webviewer.getWebResult(url,autoForms=autoforms,autoClose=autoclose,dialog=True) #@UnusedVariable
+		print '-----------------------------------------------END'
+		return url
 		
 	def processCommandLine(self):
 		if len(sys.argv) < 3:
@@ -113,11 +199,11 @@ class EvernoteSession():
 		
 		return username,password
 		
-	def setUserPass(self,username,password):
+	def setUserToken(self,username,token):
 		self.username = username
-		self.password = password
+		self.authToken = token
 		
-	def startSession(self,authResult=None):
+	def startSession(self,new=False):
 		self.defaultNotebook = None
 		self.notebooks = []
 		import ssl
@@ -127,11 +213,12 @@ class EvernoteSession():
 			self.fixSSL()
 			if not self.checkVersion(): return None
 		# Authenticate the user
-		if not authResult:
-			authResult = self.authenticate(self.username, self.password)
+		if not self.authToken or new:
+			token = self.authenticate()
+			if token: self.authToken = token
+		if not self.authToken: return None
+		self.user = self.userStore.getUser(self.authToken)
 		
-		self.user = authResult.user
-		self.authToken = authResult.authenticationToken
 		LOG("Authentication was successful for %s" % self.user.username)
 		LOG("Authentication token = %s" % self.authToken)
 		
@@ -196,26 +283,6 @@ class EvernoteSession():
 		
 		LOG("EDAM protocol version up to date? - %s " % str(versionOK))
 		return versionOK
-		
-	def authenticate(self,user, password):
-		try:
-			return self.userStore.authenticate(user, password, self.consumerKey, self.consumerSecret)
-		except Errors.EDAMUserException as e:
-			# See http://www.evernote.com/about/developer/api/ref/UserStore.html#Fn_UserStore_authenticate
-			parameter = e.parameter
-			errorCode = e.errorCode
-			errorText = Errors.EDAMErrorCode._VALUES_TO_NAMES[errorCode]
-			
-			LOG("Authentication failed (parameter: " + parameter + " errorCode: " + errorText + ")")
-			
-			if errorCode == Errors.EDAMErrorCode.INVALID_AUTH:
-				if parameter == "consumerKey":
-					LOG("Consumer key was not accepted by %s" % self.evernoteHost)
-				elif parameter == "username":
-					LOG("You must authenticate using a username and password from %s" % self.evernoteHost)
-				elif parameter == "password":
-					LOG("The password entered is incorrect")
-			raise EvernoteSessionError('startSession()','userStore.authenticate',e)
 		
 	def getNotebooks(self,ignoreCache=False,linked=False):
 		if linked:
@@ -565,13 +632,29 @@ class XNoteSession():
 		
 		return True
 			
-	def startSession(self,user=None):
-		user,password = self.getUserPass(user)
-		if not user: return False
-		self.esession.setUserPass(user, password)
-		self.esession.startSession()
+	def startSession(self,user=None,new=False):
+		if new:
+			user = None
+			token = None
+		else:
+			user,token = self.getUserToken(user)
+			self.esession.setUserToken(user, token)
+		if not token: new = True
+		#if not user: return False
+		self.esession.startSession(new=new)
+		if not self.updateToken(new): return False
+		if new: self.showNotebooks()
 		return True
 		
+	def updateToken(self,new):
+		user = self.esession.user.username
+		token = self.esession.authToken
+		if (not user) or (not token): return False
+		__addon__.setSetting('last_user',user)
+		__addon__.setSetting('token_%s' % user,token)
+		if new: self.addUser(user, token)
+		return True
+	
 	def error(self,error=None,message='',extra=''):
 		if error:
 			if isinstance(error,EvernoteSessionError):
@@ -593,14 +676,17 @@ class XNoteSession():
 		now = time.time()
 		for folder in glob.glob(root):
 			LOG('Cleaning Cache: %s' % folder)
-			for image in glob.glob(folder + '/*.*'):
+			for image in glob.glob(folder + '/*'):
 				show = os.path.basename(image)
 				# retrieves the stats for the current jpeg image file
 				# the tuple element at index 8 is the last-modified-date
 				stats = os.stat(image)
 				lastAccessDate = stats[7]
 				days_left = int(((lastAccessDate + expiration) - now) / day)
-				LOG('File %s last accessed: %s - %s days left.' % (show, time.strftime("%m/%d/%y", time.localtime(lastAccessDate)),days_left))
+				if days_left < 0:
+					LOG('File %s last accessed: %s - %s days past limit.' % (show, time.strftime("%m/%d/%y", time.localtime(lastAccessDate)),abs(days_left)))
+				else:
+					LOG('File %s last accessed: %s - %s days left.' % (show, time.strftime("%m/%d/%y", time.localtime(lastAccessDate)),days_left))
 				# check if image-last-accessed-date is outdated
 				if now - lastAccessDate > expiration:
 					try:
@@ -660,10 +746,7 @@ class XNoteSession():
 		note = self.esession.getNoteByGuid(guid,nbguid)
 		self.viewNote(note)
 	
-	def getUserPass(self,user=None,force=False):
-		if force:
-			user = doKeyboard(__lang__(30061))
-			if not user: return None,None
+	def getUserToken(self,user=None,force=False):
 		if not user:
 			if __addon__.getSetting('choose_user') == 'true':
 				user = self.chooseUser()
@@ -674,43 +757,19 @@ class XNoteSession():
 		if not user:
 			user = doKeyboard(__lang__(30061))
 		if not user: return None,None
-		if not __addon__.getSetting('save_passwords') == 'true':
-			__addon__.setSetting('login_pass_%s' % user,'')
-		password = __addon__.getSetting('login_pass_%s' % user)
-		if password:
-			method, keyfile, password = parsePassword(password)
-			password = easypassword.decryptPassword(getUserKey(user),password,method=method,keyfile=keyfile)
-			if not password: self.showError(__lang__(30073))
-		else:
-			password = doKeyboard(__lang__(30062) % user,hidden=True)
-		if not password: return None,None
-		if not self.addUser(user,password): return None,None
+		token = __addon__.getSetting('token_%s' % user)
+		if not token:
+			if not self.addUser(user,token): return None,None
 		__addon__.setSetting('last_user',user)
-		if __addon__.getSetting('save_passwords') == 'true':
-			method = getPasswordCryptoMethod()
-			__addon__.setSetting('login_pass_%s' % user,preSavePassword(easypassword.encryptPassword(getUserKey(user),password,method=method,keyfile=getSetting('crypto_key_file'))))
-		return user,password
+		__addon__.setSetting('token_%s' % user,token)
+		return user,token
 		
 	def getUserList(self):
 		return getUserList()
 	
-	def addUser(self,user,password):
-		if not user or not password: return False
+	def addUser(self,user,token):
 		userlist = self.getUserList()
 		if user in userlist: return True
-		try:
-			self.esession.authenticate(user, password)
-		except EvernoteSessionError as e:
-			if e.code == Errors.EDAMErrorCode.INVALID_AUTH:
-				extra = ''
-				if e.parameter == 'username': extra = __lang__(30074)
-				elif e.parameter == 'password': extra = __lang__(30075)
-				if extra: e = __lang__(30076)
-				self.error(e, __lang__(30042),extra)
-				return False
-		except:
-			self.error(message=__lang__(30042))
-			return False
 		if not self.usersCount(): userlist = []
 		userlist.append(user)
 		__addon__.setSetting('user_list','@,@'.join(userlist))
@@ -748,7 +807,8 @@ class XNoteSession():
 				self.window.close()
 			return None
 		elif idx == add:
-			self.getUserPass(force=True)
+			#self.getUserToken(force=True)
+			self.startSession(new=True)
 		elif idx == remove:
 			self.removeUser()
 			if not self.usersCount():
@@ -756,12 +816,6 @@ class XNoteSession():
 				return None
 		else:
 			return users[idx]
-		
-	def createNewUser(self):
-		user,password = self.getUserPass(force=True) #@UnusedVariable
-		if not user: return
-		self.changeUser(user)
-		self.notify(__lang__(30100) % user)
 	
 	def changeUser(self,user=None):
 		if not user: user = self.chooseUser()
@@ -829,7 +883,7 @@ class XNoteSession():
 				self.createNotebook()
 			elif option == 'adduser':
 				err_msg = __lang__(30047)
-				self.createNewUser()
+				self.startSession(new=True)
 			elif option == 'changeuser':
 				err_msg = __lang__(30048)
 				self.changeUser()
@@ -1276,8 +1330,8 @@ class XNoteSession():
 		
 	def prepareContentForWebviewer(self,contents):
 		contents = re.sub('<!DOCTYPE.*?>','',contents)
-		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/?>(?:</en-media>)?',r'<img src="\1" />',contents)
-		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/?>(?:</en-media>)?',r'<img src="\1" />',contents)
+		contents = re.sub(r'<en-media[^>]*type="image/[^>]*hash="([^"]+)"[^>]*/?>(?:</en-media>)?',r'<img src="%s/\1" />' % self.CACHE_PATH,contents)
+		contents = re.sub(r'<en-media[^>]*hash="([^"]+)"[^>]*type="image/[^>]*/?>(?:</en-media>)?',r'<img src="%s/\1" />' % self.CACHE_PATH,contents)
 		return contents.replace('<en-note>','<body>').replace('</en-note>','</body>')
 	
 	def notify(self,message,header='X-NOTE'):

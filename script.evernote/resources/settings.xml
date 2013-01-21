@@ -5,10 +5,5 @@
   	<setting label="30000" type="lsep"/>
     <setting id="choose_user" type="bool" label="30001" default="false" />
     <setting id="choose_notebook" type="bool" label="30003" default="true" />
-    <setting label="30007" type="lsep"/>
-    <setting id="save_passwords" type="bool" label="30002" default="true" />
-    <setting id="crypto_type" subsetting="true" type="enum" label="30004" values="AES|Triple DES|AES & Triple DES" default="2" enable="eq(-1,true)" />
-    <setting label="30005" type="file" id="crypto_key_file"  subsetting="true" default="" enable="eq(-2,true)" />
-    <setting label="30006" type="action" action="RunScript(script.evernote,crypto_help)"/>
   </category>
 </settings>

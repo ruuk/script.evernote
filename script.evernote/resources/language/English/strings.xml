@@ -95,6 +95,9 @@
 
     <string id="30220">Waiting...</string>
     <string id="30221">Waiting for thread to stop...</string>
+    
+    <string id="30505">Authorization Complete</string>
+    <string id="30506">Authorization Complete!</string>
         
     <string id="3020">NOTEBOOKS</string>
     <string id="3021">NOTES</string>

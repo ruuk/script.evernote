@@ -3,13 +3,19 @@ X-Note Changelog
 TODO:
  Add an option to view public notebook URLs
 
-Current Version : 0.1.9
+Current Version : 0.2.0
+
+*** 0.2.0 ***
+
+Changes to handle new authentication method
+Removed password/crypto settings
+Fix for viewing image notes
 
 *** 0.1.9 ***
 
 Updated Evenote api to current 1.22 (08-30-2012)
-Added a workaround for SSL errors with some openssl version (ie with Ubuntu 12.04)
-use userStore.getNoteStoreUrl to get the NoteStore url as per currnet api example
+Added a workaround for SSL errors with some openssl versions (ie with Ubuntu 12.04)
+Use userStore.getNoteStoreUrl to get the NoteStore url as per currnet api example
 
 *** 0.1.8 ***
 

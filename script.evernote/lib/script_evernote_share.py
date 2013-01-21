@@ -1,4 +1,5 @@
-from xnote import EvernoteSession, getSetting, easypassword, parsePassword, getUserKey, ERROR, EvernoteSessionError, getUserList
+import oauth2
+from xnote import EvernoteSession, getSetting, ERROR, EvernoteSessionError, getUserList
 
 import ShareSocial #@UnresolvedImport
 
@@ -9,20 +10,19 @@ class EvernoteTargetFunctions(ShareSocial.TargetFunctions):
 	def __init__(self):
 		self.session = EvernoteSession()
 		
-	def getUserPass(self,user):
-		password = getSetting('login_pass_%s' % user)
-		if not password: return False
-		method, keyfile, password = parsePassword(password)
-		password = easypassword.decryptPassword(getUserKey(user),password,method=method,keyfile=keyfile)
-		return user,password
+	def getUserToken(self,user):
+		token = getSetting('token_%s' % user)
+		if not token: return False
+		return user,token
 	
 	def startSession(self,user=None):
 		if not user: user = getSetting('last_user')
 		if not user: return
 		if self.session.username == user: return
-		user,password = self.getUserPass(user)
+		user,token = self.getUserToken(user)
 		if not user: return False
-		self.session.setUserPass(user, password)
+		if not token: return False
+		self.session.setUserToken(user, token)
 		self.session.startSession()
 		self.session.getNotebooks()
 		return True
