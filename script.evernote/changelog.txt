@@ -10,6 +10,7 @@ Current Version : 0.2.0
 Changes to handle new authentication method
 Removed password/crypto settings
 Fix for viewing image notes
+Fix for empty notes continuing to display 'Loading Content...' after loading
 
 *** 0.1.9 ***
 

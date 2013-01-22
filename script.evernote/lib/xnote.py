@@ -88,7 +88,7 @@ class EvernoteSession():
 	def __init__(self):
 		self.consumerKey = "ruuk25-1051"
 		self.consumerSecret = "5a5ca4c9cecf455b"
-		self.evernoteHost = "sandbox.evernote.com"
+		self.evernoteHost = "www.evernote.com"
 		
 		self.userStoreUri = "https://" + self.evernoteHost + "/edam/user"
 		self.noteStoreUriBase = "https://" + self.evernoteHost + "/edam/note/"
@@ -100,6 +100,7 @@ class EvernoteSession():
 		self.userStoreHttpClient = THttpClient.THttpClient(self.userStoreUri)
 		self.userStoreProtocol = TBinaryProtocol.TBinaryProtocol(self.userStoreHttpClient)
 		self.userStore = UserStore.Client(self.userStoreProtocol)
+		self.user = None
 		self.username = None
 		self.password = None
 		self.noteStores = {}
@@ -156,9 +157,7 @@ class EvernoteSession():
 	def authPart2(self,oauth, url,request_token):
 		import urlparse
 		request_token2 = dict(urlparse.parse_qsl(url))
-		print 'x %s' % request_token2 
 		oauth_verifier = request_token2.get('oauth_verifier', '')
-		print 'y %s' % oauth_verifier 
 		
 		try:
 			token = oauth.Token(
@@ -185,19 +184,9 @@ class EvernoteSession():
 
 		
 		print '-----------------------------------------------START'
-		url,html = webviewer.getWebResult(url,autoForms=autoforms,autoClose=autoclose,dialog=True) #@UnusedVariable
+		url,html = webviewer.getWebResult(url,autoForms=autoforms,autoClose=autoclose,dialog=True,clearCookies=True) #@UnusedVariable
 		print '-----------------------------------------------END'
 		return url
-		
-	def processCommandLine(self):
-		if len(sys.argv) < 3:
-			print "Arguments:  <username> <password>";
-			return None
-
-		username = sys.argv[1]
-		password = sys.argv[2]
-		
-		return username,password
 		
 	def setUserToken(self,username,token):
 		self.username = username
@@ -217,6 +206,7 @@ class EvernoteSession():
 			token = self.authenticate()
 			if token: self.authToken = token
 		if not self.authToken: return None
+		
 		self.user = self.userStore.getUser(self.authToken)
 		
 		LOG("Authentication was successful for %s" % self.user.username)
@@ -639,14 +629,25 @@ class XNoteSession():
 		else:
 			user,token = self.getUserToken(user)
 			self.esession.setUserToken(user, token)
+		if not user and not new:
+			return False
 		if not token: new = True
 		#if not user: return False
-		self.esession.startSession(new=new)
+		try:
+			self.esession.startSession(new=new)
+		except Errors.EDAMUserException, e:
+			if e.errorCode == Errors.EDAMErrorCode.BAD_DATA_FORMAT:
+				if e.parameter == 'authenticationToken':
+					return self.changeUser()
 		if not self.updateToken(new): return False
-		if new: self.showNotebooks()
+		if new:
+			self.clearNotes()
+			self.showNotebooks()
+			self.window.initFocus()
 		return True
 		
 	def updateToken(self,new):
+		if not self.esession.user: return False
 		user = self.esession.user.username
 		token = self.esession.authToken
 		if (not user) or (not token): return False
@@ -754,8 +755,6 @@ class XNoteSession():
 			user = __addon__.getSetting('last_user')
 		if not user:
 			user = self.chooseUser(0)
-		if not user:
-			user = doKeyboard(__lang__(30061))
 		if not user: return None,None
 		token = __addon__.getSetting('token_%s' % user)
 		if not token:
@@ -808,7 +807,7 @@ class XNoteSession():
 			return None
 		elif idx == add:
 			#self.getUserToken(force=True)
-			self.startSession(new=True)
+			return self.startSession(new=True)
 		elif idx == remove:
 			self.removeUser()
 			if not self.usersCount():
@@ -820,11 +819,12 @@ class XNoteSession():
 	def changeUser(self,user=None):
 		if not user: user = self.chooseUser()
 		if not user: return
-		if not self.startSession(user): return
+		if not self.startSession(user): return False
 		__addon__.setSetting('last_user',user)
 		self.clearNotes()
 		self.showNotebooks()
 		self.window.initFocus()
+		return True
 		
 	def usersCount(self):
 		ulist = self.getUserList()
@@ -1403,7 +1403,7 @@ class XNoteSession():
 		LOG('Updated Changed Note: %s' % guid)
 		content = self.prepareContentForWebviewer(note.content)
 		content, title = self.htmlconverter.htmlToDisplay(content) #@UnusedVariable
-		item.setProperty('content',content)
+		item.setProperty('content',content or " ")
 		
 ######################################################################################
 # Base Window Classes
