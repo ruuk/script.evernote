@@ -18,7 +18,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -109,6 +109,7 @@ class EvernoteSession():
 		self.authToken = None
 		
 	def authenticate(self):
+		LOG('Authenticating')
 		import urlparse, urllib
 		
 		oauth = self.getOAuth()
@@ -1552,7 +1553,7 @@ class ThreadWindow:
 			
 class BaseWindow(xbmcgui.WindowXML,ThreadWindow):
 	def __init__( self, *args, **kwargs):
-		xbmcgui.WindowXML.__init__( self, *args, **kwargs )
+		xbmcgui.WindowXML.__init__( self)
 		ThreadWindow.__init__(self)
 		
 	def onFocus( self, controlId ):
