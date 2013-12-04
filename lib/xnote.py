@@ -18,7 +18,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -116,9 +116,9 @@ class EvernoteSession():
 		client = self.getOAuthClient(oauth)
 		
 		resp, content = client.request(self.request_token_url + '?oauth_callback='+ urllib.quote(self.callback_url), "POST")
-
+		print resp['status']
 		if resp['status'] != '200':
-			#print content
+			print content
 			raise Exception("Invalid response %s." % resp['status'])
 		
 		request_token = dict(urlparse.parse_qsl(content))
