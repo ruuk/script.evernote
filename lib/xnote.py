@@ -3,7 +3,12 @@ import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
 import sys, os, re, traceback, glob, time, threading, httplib
 from webviewer import htmltoxbmc #@UnresolvedImport
 import maps
-
+try:
+	import httplib2  # @UnusedImport
+except:
+	import _httplib2 as httplib2  # @Reimport
+	print('X-NOTE: USING INTERNAL HTTPLIB2')
+	
 #Evernote Imports
 import hashlib, binascii, getpass
 from xml.sax.saxutils import escape
@@ -18,7 +23,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.8'
+__version__ = '0.2.9'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -136,7 +141,7 @@ class EvernoteSession():
 		return self._tempToken
 		
 	def getOAuth(self):
-		import httplib2, ssl
+		import ssl
 		def _ssl_wrap_socket(sock, key_file, cert_file,
 							 disable_validation, ca_certs):
 			if disable_validation:
