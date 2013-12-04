@@ -5,5 +5,6 @@
   	<setting label="30000" type="lsep"/>
     <setting id="choose_user" type="bool" label="30001" default="false" />
     <setting id="choose_notebook" type="bool" label="30003" default="true" />
+    <setting label="Authorize User" type="action" action="RunScript(script.evernote,auth)" option="close"/>
   </category>
 </settings>

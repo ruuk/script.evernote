@@ -18,7 +18,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.7'
+__version__ = '0.2.8'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -112,8 +112,7 @@ class EvernoteSession():
 		LOG('Authenticating')
 		import urlparse, urllib
 		LOG('1')
-		#oauth = self.getOAuth()
-		import oauth2 as oauth
+		oauth = self.getOAuth()
 		LOG('2')
 		client = self.getOAuthClient(oauth)
 		LOG('3')
@@ -131,7 +130,8 @@ class EvernoteSession():
 		print "    - oauth_token_secret = %s" % request_token['oauth_token_secret']
 		auth_url = "%s?oauth_token=%s" % (self.authorize_url, request_token['oauth_token'])
 		token_url = self.webwiewer(auth_url)
-		LOG('AUTH RESPONSE URL: ' + token_url)
+		LOG('AUTH RESPONSE URL: ' + str(token_url))
+		if not token_url: return None
 		self._tempToken = self.authPart2(oauth,token_url,request_token)
 		return self._tempToken
 		
@@ -582,12 +582,16 @@ def getUserList():
 	return userlist
 	
 class XNoteSession():
-	def __init__(self,window=None):
+	def __init__(self,window=None,new=False):
 		self.window = window
 		self._pdialog = None
 		self.currentNoteFilter = None
 		self.updatingNote = None
 		self.clipboard = None
+		self.esession = None
+		if new:
+			self.start(new=True)
+			return
 		try:
 			import SSClipboard #@UnresolvedImport
 			self.clipboard = SSClipboard.Clipboard()
@@ -609,13 +613,13 @@ class XNoteSession():
 			if not self.start():
 				self.window.close()
 				return
-		
+		if new: return
 		self.showNotebooks()
 	
-	def start(self):
+	def start(self,new=False):
 		try:
 			self.esession = EvernoteSession()
-			if not self.startSession():
+			if not self.startSession(new=new,just_close=new):
 				return False
 		except EvernoteSessionError as e:
 			self.error(e,message=__lang__(30041))
@@ -626,7 +630,7 @@ class XNoteSession():
 		
 		return True
 			
-	def startSession(self,user=None,new=False):
+	def startSession(self,user=None,new=False,just_close=False):
 		if new:
 			user = None
 			token = None
@@ -644,7 +648,7 @@ class XNoteSession():
 				if e.parameter == 'authenticationToken':
 					return self.changeUser()
 		if not self.updateToken(new): return False
-		if new:
+		if new and not just_close:
 			self.clearNotes()
 			self.showNotebooks()
 			self.window.initFocus()
@@ -1640,6 +1644,9 @@ if __name__ == '__main__':
 	if len(sys.argv) > 1:
 		if sys.argv[1] == 'crypto_help':
 			xbmcgui.Dialog().ok('Crypto Help','Passwords are encrypted using user data as the key.','Optional: include a keyfile whose contents must not','change and must be readable by XBMC.')
+		elif sys.argv[1] == 'auth':
+			session = XNoteSession(new=True)
+			if session.esession.authToken: xbmcgui.Dialog().ok('Added','User Added')
 	else:
 		registerAsShareTarget()
 		openWindow('main')
