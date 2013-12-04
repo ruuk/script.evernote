@@ -3,7 +3,11 @@ X-Note Changelog
 TODO:
  Add an option to view public notebook URLs
 
-Current Version : 0.2.10
+Current Version : 0.2.11
+
+*** 0.2.11 ***
+
+Fix for errors caused on platforms where setting the timestamp of a file is not allowed
 
 *** 0.2.10 ***
 
