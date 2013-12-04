@@ -111,14 +111,16 @@ class EvernoteSession():
 	def authenticate(self):
 		LOG('Authenticating')
 		import urlparse, urllib
-		
+		LOG('1')
 		oauth = self.getOAuth()
+		LOG('2')
 		client = self.getOAuthClient(oauth)
-		
+		LOG('3')
 		resp, content = client.request(self.request_token_url + '?oauth_callback='+ urllib.quote(self.callback_url), "POST")
-		print resp['status']
+		LOG('4')
+		LOG(resp['status'])
 		if resp['status'] != '200':
-			print content
+			LOG(repr(content))
 			raise Exception("Invalid response %s." % resp['status'])
 		
 		request_token = dict(urlparse.parse_qsl(content))
