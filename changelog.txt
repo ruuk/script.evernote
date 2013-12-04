@@ -3,7 +3,14 @@ X-Note Changelog
 TODO:
  Add an option to view public notebook URLs
 
-Current Version : 0.2.11
+Current Version : 0.3.0
+
+*** 0.3.0 ***
+
+Fix a skin issue with overflowing text on the notebooks list
+Fixed deprecated items in skin
+Updated addon.xml for Gotham
+Converted strings.xml to strings.po
 
 *** 0.2.11 ***
 

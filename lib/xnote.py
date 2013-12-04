@@ -185,8 +185,8 @@ class EvernoteSession():
 		from webviewer import webviewer #@UnresolvedImport
 		autoforms = [	{'name':'login_form'},{'name':'oauth_authorize_form'}]
 		autoclose = {	'url':'.*&oauth_verifier=.*',
-						'heading':__lang__(30505),
-						'message':__lang__(30506)}
+						'heading':__lang__(32505),
+						'message':__lang__(32506)}
 
 		
 		print '-----------------------------------------------START'
@@ -624,10 +624,10 @@ class XNoteSession():
 			if not self.startSession(new=new,just_close=new):
 				return False
 		except EvernoteSessionError as e:
-			self.error(e,message=__lang__(30041))
+			self.error(e,message=__lang__(32041))
 			return False
 		except:
-			self.error(message=__lang__(30041))
+			self.error(message=__lang__(32041))
 			return False
 		
 		return True
@@ -678,7 +678,7 @@ class XNoteSession():
 		self.showError(message,err,extra)
 	
 	def showError(self,l1,l2='',l3=''):
-		xbmcgui.Dialog().ok(__lang__(30040),l1,l2,l3)
+		xbmcgui.Dialog().ok(__lang__(32040),l1,l2,l3)
 		
 	def cleanCache(self):
 		root = self.CACHE_PATH
@@ -710,7 +710,7 @@ class XNoteSession():
 		lc = self.window.getControl(list_id)
 		return lc.getSelectedItem()
 	
-	def startProgress(self,caption=__lang__(30030),text=''):
+	def startProgress(self,caption=__lang__(32030),text=''):
 		self._pdialog = xbmcgui.DialogProgress()
 		self._pdialog.create(caption)
 		self._pdialog.update(0,text)
@@ -802,15 +802,15 @@ class XNoteSession():
 		add = remove = -2
 		if not just_users:
 			add = len(users)
-			users.append(__lang__(30014))
+			users.append(__lang__(32014))
 			if self.getUserList():
 				remove = len(users)
-				users.append(__lang__(30111))
+				users.append(__lang__(32111))
 		
 		if index != None:
 			if not self.getUserList(): return None
 			return users[index]
-		idx = xbmcgui.Dialog().select(__lang__(30019),users)
+		idx = xbmcgui.Dialog().select(__lang__(32019),users)
 		if idx < 0:
 			if not self.usersCount():
 				self.window.close()
@@ -841,47 +841,47 @@ class XNoteSession():
 		return len(ulist)
 			
 	def doContextMenu(self):
-		options = [__lang__(30011),__lang__(30012),__lang__(30013),__lang__(30016),__lang__(30014),__lang__(30015)]
+		options = [__lang__(32011),__lang__(32012),__lang__(32013),__lang__(32016),__lang__(32014),__lang__(32015)]
 		optionIDs = ['xbmclog','screenshot','write','notebook','adduser','changeuser']
 
 		options.append('')
 		optionIDs.append('')
 		focus = self.window.getFocusId()
 		if focus == 125 or focus == 131:
-			options.append(__lang__(30026))
+			options.append(__lang__(32026))
 			optionIDs.append('movenote')
-			options.append(__lang__(30017))
+			options.append(__lang__(32017))
 			optionIDs.append('deletenote')
 			item = self.getFocusedItem(125)
 			if item.getProperty('haslocation') == 'yes':
-				options.append(__lang__(30037))
+				options.append(__lang__(32037))
 				optionIDs.append('showmap')
 		elif focus == 120:
 			#Disabled until we get permissions for the api key
 			item = self.getFocusedItem(120)
 			linked = item.getProperty('linked')
 			if not linked:
-				options.append(__lang__(30018))
+				options.append(__lang__(32018))
 				optionIDs.append('deletenotebook')
 			if item.getProperty('published') == 'notpublished':
-				if not linked: options.append(__lang__(30035))
+				if not linked: options.append(__lang__(32035))
 			else:
 				if item.getProperty('publicuri') or item.getProperty('published'):
 					optionIDs.append('viewurl')
-					options.append(__lang__(30112))
-				if not linked: options.append(__lang__(30036))
+					options.append(__lang__(32112))
+				if not linked: options.append(__lang__(32036))
 			if not linked:
 				optionIDs.append('publishnotebook')
-				options.append(__lang__(30038))
+				options.append(__lang__(32038))
 				optionIDs.append('addtostack')
 			
-		idx = xbmcgui.Dialog().select(__lang__(30010),options)
+		idx = xbmcgui.Dialog().select(__lang__(32010),options)
 		if idx < 0:
 			return
 		else:
 			option = optionIDs[idx]
 		try:
-			err_msg = __lang__(30046)
+			err_msg = __lang__(32046)
 			if option == 'xbmclog':
 				self.createXBMCLogNote()
 			elif option == 'screenshot':
@@ -889,34 +889,34 @@ class XNoteSession():
 			elif option == 'write':
 				self.createWriteNote()
 			elif option == 'notebook':
-				err_msg = __lang__(30049)
+				err_msg = __lang__(32049)
 				self.createNotebook()
 			elif option == 'adduser':
-				err_msg = __lang__(30047)
+				err_msg = __lang__(32047)
 				self.startSession(new=True)
 			elif option == 'changeuser':
-				err_msg = __lang__(30048)
+				err_msg = __lang__(32048)
 				self.changeUser()
 			elif option == 'movenote':
-				err_msg = __lang__(30053)
+				err_msg = __lang__(32053)
 				self.moveNote()
 			elif option == 'deletenote':
-				err_msg = __lang__(30051)
+				err_msg = __lang__(32051)
 				self.deleteNote()
 			elif option == 'deletenotebook':
-				err_msg = __lang__(30052)
+				err_msg = __lang__(32052)
 				self.deleteNotebook()
 			elif option == 'publishnotebook':
-				err_msg = __lang__(30056)
+				err_msg = __lang__(32056)
 				self.toggleNotebookPublished()
 			elif option == 'viewurl':
-				err_msg = __lang__(30059)
+				err_msg = __lang__(32059)
 				self.viewPublishedNotebookURL()
 			elif option == 'showmap':
-				err_msg = __lang__(30057)
+				err_msg = __lang__(32057)
 				self.showMap()
 			elif option == 'addtostack':
-				err_msg = __lang__(30058)
+				err_msg = __lang__(32058)
 				self.addNotebookToStack()
 		except EvernoteSessionError as e:
 			self.error(e,message=err_msg)
@@ -947,49 +947,49 @@ class XNoteSession():
 		if __addon__.getSetting('choose_notebook') == 'true':
 			nb = self.chooseNotebook()
 			if nb == None: return
-		note = self.esession.createNote(self.getXBMCLog(),title=__lang__(30063),notebook=nb)
+		note = self.esession.createNote(self.getXBMCLog(),title=__lang__(32063),notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify(__lang__(30101) % note.title)
+		self.notify(__lang__(32101) % note.title)
 		
 	def createScreenshotNote(self):
 		nb = None
 		if __addon__.getSetting('choose_notebook') == 'true':
 			nb = self.chooseNotebook()
 			if nb == None: return
-		fname = xbmcgui.Dialog().browse(1, __lang__(30022), 'files','.png|.jpg|.gif',True,False,xbmc.translatePath('special://screenshots/'))
+		fname = xbmcgui.Dialog().browse(1, __lang__(32022), 'files','.png|.jpg|.gif',True,False,xbmc.translatePath('special://screenshots/'))
 		if not fname: return
-		note = self.esession.createNote(title=__lang__(30060) % os.path.basename(fname),image_files=[fname],notebook=nb)
+		note = self.esession.createNote(title=__lang__(32060) % os.path.basename(fname),image_files=[fname],notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify(__lang__(30102) % note.title)
+		self.notify(__lang__(32102) % note.title)
 	
 	def createWriteNote(self):
 		nb = None
 		if __addon__.getSetting('choose_notebook') == 'true':
 			nb = self.chooseNotebook()
 			if nb == None: return
-		title = doKeyboard(__lang__(30020))
+		title = doKeyboard(__lang__(32020))
 		if title == None: return
-		text = doKeyboard(__lang__(30021))
+		text = doKeyboard(__lang__(32021))
 		if text == None: return
 		if not text: return
 		note = self.esession.createNote(text,title=title,notebook=nb)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify(__lang__(30103) % note.title)
+		self.notify(__lang__(32103) % note.title)
 	
 	def createNotebook(self):
-		title = doKeyboard(__lang__(30023))
+		title = doKeyboard(__lang__(32023))
 		if not title: return
 		if self.esession.notebooks:
 			for n in self.esession.notebooks:
 				if n.name == title:
-					self.showError(__lang__(30050))
+					self.showError(__lang__(32050))
 					return
 		nb = self.esession.createNotebook(title)
 		self.showNotebooks(force=True)
-		self.notify(__lang__(30104) % nb.name)
+		self.notify(__lang__(32104) % nb.name)
 		
 	def getStackList(self):
 		stacks = []
@@ -1005,29 +1005,29 @@ class XNoteSession():
 			LOG('addNotebookToStack() - No notebook')
 			return
 		stacks = self.getStackList()
-		stacks.append(__lang__(30071))
-		idx = xbmcgui.Dialog().select(__lang__(30072),stacks)
+		stacks.append(__lang__(32071))
+		idx = xbmcgui.Dialog().select(__lang__(32072),stacks)
 		if idx < 0:
 			return
 		elif idx == len(stacks) - 1:
-			stack = doKeyboard(__lang__(30070))
+			stack = doKeyboard(__lang__(32070))
 		else:
 			stack = stacks[idx]
 		if not stack: return
 		
 		self.esession.addNotebookToStack(nb, stack)
 		self.showNotebooks(force=True)
-		self.notify(__lang__(30110) % (nb.name,stack))
+		self.notify(__lang__(32110) % (nb.name,stack))
 		
 	def deleteNote(self):
 		item = self.getFocusedItem(125)
 		guid = item.getProperty('guid')
 		title = item.getLabel()
-		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), title):
+		if xbmcgui.Dialog().yesno(__lang__(32024), __lang__(32025), title):
 			self.esession.deleteNote(guid)
 			self.updateNotebookCounts()
 			self.showNotes()
-			self.notify(__lang__(30105) % title)
+			self.notify(__lang__(32105) % title)
 			
 	def cleanURI(self,uri):
 		return re.sub('[^\w_-]','',uri).lower()
@@ -1071,20 +1071,20 @@ class XNoteSession():
 				uri = nb.publishing.uri or uri
 				desc = nb.publishing.publicDescription or desc
 			url = 'http://' + self.esession.evernoteHost + '/pub/' + self.esession.user.username + '/'
-			uri = doKeyboard(__lang__(30064) + url,uri)
+			uri = doKeyboard(__lang__(32064) + url,uri)
 			if uri == None: return
 			uri = self.cleanURI(uri)
-			desc = doKeyboard(__lang__(30065),desc)
+			desc = doKeyboard(__lang__(32065),desc)
 			if desc == None: return
-			if not xbmcgui.Dialog().yesno('Confirm',abbreviateURL(url + uri), '"%s"' % desc,__lang__(30068)): return
+			if not xbmcgui.Dialog().yesno('Confirm',abbreviateURL(url + uri), '"%s"' % desc,__lang__(32068)): return
 			try:
 				self.esession.publishNotebook(guid,True,desc,uri)
 			except EvernoteSessionError as e:
 				if e.parameter == 'Publishing.uri':
 					if e.message == 'DATA_CONFLICT':
-						self.showError(__lang__(30066))
+						self.showError(__lang__(32066))
 					elif e.message == 'BAD_DATA_FORMAT' or e.message == 'DATA_REQUIRED':
-						self.showError(__lang__(30067))
+						self.showError(__lang__(32067))
 					else:
 						raise
 					return
@@ -1093,18 +1093,18 @@ class XNoteSession():
 			
 		self.showNotebooks(force=True)
 		if published == 'published':
-			self.notify(__lang__(30109) % name)
+			self.notify(__lang__(32109) % name)
 		else:
-			self.notify(__lang__(30108) % name)
+			self.notify(__lang__(32108) % name)
 		
 	def deleteNotebook(self):
 		item = self.getFocusedItem(120)
 		guid = item.getProperty('guid')
 		name = item.getProperty('name')
-		if xbmcgui.Dialog().yesno(__lang__(30024), __lang__(30025), name):
+		if xbmcgui.Dialog().yesno(__lang__(32024), __lang__(32025), name):
 			self.esession.deleteNotebook(guid)
 			self.showNotebooks(True)
-			self.notify(__lang__(30106) % name)
+			self.notify(__lang__(32106) % name)
 			#TODO: Perhaps clear the note list, when this is working we can check to see if we can still access the notes
 		
 	def moveNote(self):
@@ -1118,7 +1118,7 @@ class XNoteSession():
 		self.esession.moveNote(guid, nbguid)
 		self.updateNotebookCounts()
 		self.showNotes()
-		self.notify(__lang__(30107) % title)
+		self.notify(__lang__(32107) % title)
 		
 	def chooseNotebook(self):
 		nblist = []
@@ -1128,14 +1128,14 @@ class XNoteSession():
 			nblist.append(nb.name)
 			guids.append(nb.guid)
 			
-		idx = xbmcgui.Dialog().select(__lang__(30027),nblist)
+		idx = xbmcgui.Dialog().select(__lang__(32027),nblist)
 		if idx < 0:
 			return None
 		
 		return guids[idx]
 		
 	def showNotebooks(self,force=False):
-		self.startProgress(text=__lang__(30031))
+		self.startProgress(text=__lang__(32031))
 		try:
 			notebooks = self.esession.getNotebooks(ignoreCache=force)
 			stacks = {'@@-main-@@':[]}
@@ -1153,11 +1153,11 @@ class XNoteSession():
 			midx = stack_names.index('@@-main-@@')
 			stack_names = stack_names[midx:] + stack_names[:midx]
 			items = []
-			item = xbmcgui.ListItem(label=__lang__(30069))
+			item = xbmcgui.ListItem(label=__lang__(32069))
 			all_item = item
 			item.setProperty('guid','all')
 			item.setProperty('published','notpublished')
-			item.setProperty('name',__lang__(30069))
+			item.setProperty('name',__lang__(32069))
 			items.append(item)
 			total = 0
 			for stack in stack_names:
@@ -1184,19 +1184,19 @@ class XNoteSession():
 					item.setProperty('published',pub)
 					items.append(item)
 			items = self.showLinkedNotebooks(items)
-			all_item.setLabel(__lang__(30069) + ' (%s)' % total)
+			all_item.setLabel(__lang__(32069) + ' (%s)' % total)
 			wlist = self.window.getControl(120)
 			wlist.reset()
 			wlist.addItems(items)
 		except EvernoteSessionError as e:
-			self.error(e,message=__lang__(30043))
+			self.error(e,message=__lang__(32043))
 		except:
-			self.error(message=__lang__(30043))
+			self.error(message=__lang__(32043))
 		finally:
 			self.endProgress()
 		
 	def showLinkedNotebooks(self,items):
-		item = xbmcgui.ListItem(label=__lang__(30113))
+		item = xbmcgui.ListItem(label=__lang__(32113))
 		item.setProperty('stack','stack')
 		item.setProperty('linked','linked')
 		items.append(item)
@@ -1243,7 +1243,7 @@ class XNoteSession():
 		if not nbguid and not search: return
 		self.currentNoteFilter = (nbguid,search)
 		
-		self.startProgress(text=__lang__(30032))
+		self.startProgress(text=__lang__(32032))
 		try:
 			if shardid:
 				noteList, nbguid = self.esession.getLinkedNoteList(nbguid, shardid, sharekey, notestoreurl,username,publicuri)
@@ -1254,14 +1254,14 @@ class XNoteSession():
 			tot= len(noteList.notes)
 			for note in noteList.notes: 
 				path = ''
-				self.updateProgress(ct,__lang__(30032),note.title,'',total=tot)
+				self.updateProgress(ct,__lang__(32032),note.title,'',total=tot)
 				if note.resources:
 					#print 'test'
 					#print note.resources
 					for res in note.resources:
 						#print res.mime
 						if 'image/' in res.mime:
-							self.updateProgress(ct,__lang__(30032),note.title,res.attributes.fileName or '',total=tot)
+							self.updateProgress(ct,__lang__(32032),note.title,res.attributes.fileName or '',total=tot)
 							ext = '.' + res.mime.split('/',1)[1]
 							filename = note.guid + ext
 							path = self.isCached(filename)
@@ -1282,9 +1282,9 @@ class XNoteSession():
 			wlist.reset()
 			wlist.addItems(items)
 		except EvernoteSessionError as e:
-			self.error(e,message=__lang__(30044))
+			self.error(e,message=__lang__(32044))
 		except:
-			self.error(message=__lang__(30044))
+			self.error(message=__lang__(32044))
 		finally:
 			self.endProgress()
 		
@@ -1309,7 +1309,7 @@ class XNoteSession():
 		return ''
 	
 	def viewNote(self,note):
-		self.startProgress(text=__lang__(30033))
+		self.startProgress(text=__lang__(32033))
 		try:
 			contents = self.prepareContentForWebviewer(note.content)
 			noteFile = os.path.join(self.CACHE_PATH,'notecontents.html')
@@ -1319,10 +1319,10 @@ class XNoteSession():
 			if note.resources:
 				ct=0
 				tot=len(note.resources)
-				self.updateProgress(0,__lang__(30034))
+				self.updateProgress(0,__lang__(32034))
 				for res in note.resources:
 					if 'image' in res.mime:
-						self.updateProgress(ct,__lang__(30034),res.attributes.fileName or '',total=tot)
+						self.updateProgress(ct,__lang__(32034),res.attributes.fileName or '',total=tot)
 						#ext = '.' + res.mime.split('/',1)[1]
 						filename = binascii.hexlify(res.data.bodyHash)
 						path = self.isCached(filename)
@@ -1332,9 +1332,9 @@ class XNoteSession():
 					ct+=1		
 			url = 'file://%s' % noteFile
 		except EvernoteSessionError as e:
-			self.error(e,message=__lang__(30045))
+			self.error(e,message=__lang__(32045))
 		except:
-			self.error(message=__lang__(30045))
+			self.error(message=__lang__(32045))
 		finally:
 			self.endProgress()
 			
@@ -1512,7 +1512,7 @@ class ThreadWindow:
 				if self._stopControl: self._stopControl.setVisible(False)
 			if self._isMain and len(threading.enumerate()) > 1:
 				d = xbmcgui.DialogProgress()
-				d.create(__lang__(30220),__lang__(30221))
+				d.create(__lang__(32220),__lang__(32221))
 				d.update(0)
 				self.stopThreads()
 				if d.iscanceled():
@@ -1651,7 +1651,7 @@ if __name__ == '__main__':
 			xbmcgui.Dialog().ok('Crypto Help','Passwords are encrypted using user data as the key.','Optional: include a keyfile whose contents must not','change and must be readable by XBMC.')
 		elif sys.argv[1] == 'auth':
 			session = XNoteSession(new=True)
-			if session.esession.authToken: xbmcgui.Dialog().ok('Added','User Added')
+			if session.esession.authToken: xbmcgui.Dialog().ok(__lang__(32505),__lang__(32506))
 	else:
 		registerAsShareTarget()
 		openWindow('main')
