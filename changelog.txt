@@ -11,6 +11,7 @@ Fix a skin issue with overflowing text on the notebooks list
 Fixed deprecated items in skin
 Updated addon.xml for Gotham
 Converted strings.xml to strings.po
+Added fanart.jpg
 
 *** 0.2.11 ***
 
