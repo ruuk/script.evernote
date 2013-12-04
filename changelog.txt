@@ -3,7 +3,11 @@ X-Note Changelog
 TODO:
  Add an option to view public notebook URLs
 
-Current Version : 0.2.9
+Current Version : 0.2.10
+
+*** 0.2.10 ***
+
+Fix: Added httplib2 for platforms where it is not present (ie Ouya)
 
 *** 0.2.9 ***
 

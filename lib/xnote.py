@@ -3,11 +3,8 @@ import xbmcaddon, xbmc, xbmcgui #@UnresolvedImport
 import sys, os, re, traceback, glob, time, threading, httplib
 from webviewer import htmltoxbmc #@UnresolvedImport
 import maps
-try:
-	import httplib2  # @UnusedImport
-except:
-	import _httplib2 as httplib2  # @Reimport
-	print('X-NOTE: USING INTERNAL HTTPLIB2')
+import httplib2  # @UnusedImport
+
 	
 #Evernote Imports
 import hashlib, binascii, getpass
@@ -23,7 +20,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.9'
+__version__ = '0.2.10'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
