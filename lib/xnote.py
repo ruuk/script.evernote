@@ -18,7 +18,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -1607,6 +1607,7 @@ class MainWindow(BaseWindow):
 				self.session.noteChanged()
 				
 	def onClose(self):
+		if not self.session: return
 		self.session.cleanCache()
 
 def registerAsShareTarget():

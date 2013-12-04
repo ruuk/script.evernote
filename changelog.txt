@@ -3,7 +3,11 @@ X-Note Changelog
 TODO:
  Add an option to view public notebook URLs
 
-Current Version : 0.2.0
+Current Version : 0.2.1
+
+*** 0.2.1 ***
+
+Fix for error when attempting to authorize on some systems
 
 *** 0.2.0 ***
 
