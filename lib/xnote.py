@@ -18,7 +18,7 @@ import evernote.edam.error.ttypes as Errors
 __author__ = 'ruuk'
 __url__ = 'http://code.google.com/p/evernote-xbmc/'
 __date__ = '1-21-2013'
-__version__ = '0.2.6'
+__version__ = '0.2.7'
 __addon__ = xbmcaddon.Addon(id='script.evernote')
 __lang__ = __addon__.getLocalizedString
 
@@ -112,7 +112,8 @@ class EvernoteSession():
 		LOG('Authenticating')
 		import urlparse, urllib
 		LOG('1')
-		oauth = self.getOAuth()
+		#oauth = self.getOAuth()
+		import oauth2 as oauth
 		LOG('2')
 		client = self.getOAuthClient(oauth)
 		LOG('3')
