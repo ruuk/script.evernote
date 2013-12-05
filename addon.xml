@@ -7,7 +7,6 @@
 
 	<extension point="xbmc.python.script" library="lib/xnote.py">
 		<provides>executable</provides>
-		<provides>image</provides>
 	</extension>
 
 	<extension point="xbmc.addon.metadata">
