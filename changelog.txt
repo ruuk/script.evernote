@@ -5,6 +5,11 @@ TODO:
 
 Current Version : 0.3.1
 
+*** 0.3.2 ***
+
+Remove internal oauth2
+Reduce logging
+
 *** 0.3.1 ***
 
 Added XML declarations to all xml files
